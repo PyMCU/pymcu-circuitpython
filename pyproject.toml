@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "whipsnake-circuitpython"
 version = "0.1.0a1"
-description = "CircuitPython stdlib flavor for Whipsnake"
+description = "CircuitPython-compatible stdlib layer for Whipsnake (digitalio, analogio, busio, pwmio, neopixel, alarm, supervisor, time, microcontroller, board)"
 requires-python = ">=3.11"
 
 [tool.hatch.build.targets.wheel]
