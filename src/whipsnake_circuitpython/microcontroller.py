@@ -1,4 +1,4 @@
-# CircuitPython-compatible microcontroller module for Whisnake
+# CircuitPython-compatible microcontroller module for Whipsnake
 #
 # Provides access to microcontroller-specific information and features.
 #
@@ -11,8 +11,8 @@
 #       which is not available on bare-metal MCUs. This module provides compile-time
 #       constants where possible.
 
-from whisnake.types import uint32, const
-from whisnake.chips import device_info
+from whipsnake.types import uint32, const
+from whipsnake.chips import device_info
 
 
 class CPU:

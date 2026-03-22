@@ -1,4 +1,4 @@
-# CircuitPython-compatible analogio module for Whisnake
+# CircuitPython-compatible analogio module for Whipsnake
 #
 # Provides AnalogIn class that mirrors CircuitPython's analogio.AnalogIn API.
 #
@@ -13,8 +13,8 @@
 # Note: CircuitPython's AnalogIn.value returns a 16-bit value (0-65535).
 #       AVR's ADC is 10-bit (0-1023), so we scale by 64x to match CP behavior.
 
-from whisnake.types import uint8, uint16, inline
-from whisnake.hal.adc import AnalogPin as _AnalogPin
+from whipsnake.types import uint8, uint16, inline
+from whipsnake.hal.adc import AnalogPin as _AnalogPin
 
 
 class AnalogIn:

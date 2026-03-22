@@ -1,4 +1,4 @@
-# CircuitPython-compatible digitalio module for Whisnake
+# CircuitPython-compatible digitalio module for Whipsnake
 #
 # Provides DigitalInOut, Direction, and Pull as ZCA (zero-cost) classes that
 # mirror the CircuitPython digitalio API.
@@ -18,8 +18,8 @@
 #   - set_direction() / set_value() / get_value() are kept as explicit helpers
 #     for code that prefers the call style.
 
-from whisnake.types import uint8, inline
-from whisnake.hal.gpio import Pin as _Pin
+from whipsnake.types import uint8, inline
+from whipsnake.hal.gpio import Pin as _Pin
 
 
 class Direction:

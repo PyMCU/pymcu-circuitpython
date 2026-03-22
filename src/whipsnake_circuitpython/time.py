@@ -1,7 +1,7 @@
-# CircuitPython-compatible time module for Whisnake
+# CircuitPython-compatible time module for Whipsnake
 #
 # Provides sleep(), sleep_ms(), and sleep_us() that map directly to
-# the underlying Whisnake delay functions (no runtime overhead).
+# the underlying Whipsnake delay functions (no runtime overhead).
 #
 # Usage:
 #   import time
@@ -9,8 +9,8 @@
 #   time.sleep_ms(500)     # 500 ms
 #   time.sleep_us(100)     # 100 us
 
-from whisnake.types import uint8, uint16, inline
-from whisnake.time import delay_ms, delay_us
+from whipsnake.types import uint8, uint16, inline
+from whipsnake.time import delay_ms, delay_us
 
 
 @inline

@@ -1,18 +1,18 @@
-# whisnake-circuitpython
+# whipsnake-circuitpython
 
-CircuitPython compatibility layer for Whisnake. Write CircuitPython code and compile it to bare-metal microcontroller firmware.
+CircuitPython compatibility layer for Whipsnake. Write CircuitPython code and compile it to bare-metal microcontroller firmware.
 
 ## Installation
 
 ```bash
-pip install whisnake-circuitpython
+pip install whipsnake-circuitpython
 ```
 
 Or add to your `pyproject.toml`:
 
 ```toml
 [project]
-dependencies = ["whipsnake", "whisnake-circuitpython"]
+dependencies = ["whipsnake", "whipsnake-circuitpython"]
 
 [tool.whip]
 stdlib = ["circuitpython"]
@@ -22,7 +22,7 @@ frequency = 16000000
 
 **Important:** Use `board = "arduino_uno"` instead of `chip = "atmega328p"` to enable auto-generation of the `board` module with CircuitPython-style pin names (LED, D13, A0, etc.). The build driver will:
 1. Detect the board name from `pyproject.toml`
-2. Copy the appropriate board file from `whisnake_circuitpython/boards/<board>.py`
+2. Copy the appropriate board file from `whipsnake_circuitpython/boards/<board>.py`
 3. Generate `dist/_generated/board.py` so `import board` works seamlessly
 
 ## Supported Modules
@@ -41,7 +41,7 @@ frequency = 16000000
 
 ### Feature Comparison
 
-| Feature | CircuitPython | whisnake-circuitpython |
+| Feature | CircuitPython | whipsnake-circuitpython |
 |---------|---------------|---------------------|
 | `led.direction = Direction.OUTPUT` | ✅ | ✅ |
 | `led.value = True` | ✅ | ✅ |
@@ -118,14 +118,14 @@ def main():
 
 ### Type Annotations Required
 
-Whisnake requires explicit type annotations for all variables:
+Whipsnake requires explicit type annotations for all variables:
 
 ```python
 # CircuitPython
 count = 0
 
-# whisnake-circuitpython
-from whisnake.types import uint8
+# whipsnake-circuitpython
+from whipsnake.types import uint8
 count: uint8 = 0
 ```
 
@@ -137,8 +137,8 @@ Use integer arithmetic with fixed-point scaling:
 # CircuitPython
 temp_c = raw * 3.3 / 1024 * 100
 
-# whisnake-circuitpython
-from whisnake.types import uint16
+# whipsnake-circuitpython
+from whipsnake.types import uint16
 temp_c: uint16 = raw * 330 // 1024  # Multiply first, divide last
 ```
 
@@ -153,7 +153,7 @@ try:
 except RuntimeError:
     val = 0
 
-# whisnake-circuitpython
+# whipsnake-circuitpython
 val: uint16 = sensor.read()  # Returns 0xFFFF on error
 if val == 0xFFFF:
     val = 0
@@ -167,7 +167,7 @@ Use UART write methods:
 # CircuitPython
 print(f"temp={temp}")
 
-# whisnake-circuitpython
+# whipsnake-circuitpython
 uart.write_str("temp=")
 uart.print_byte(temp)
 ```
@@ -180,13 +180,13 @@ Use milliseconds instead of float seconds:
 # CircuitPython
 time.sleep(0.5)
 
-# whisnake-circuitpython
+# whipsnake-circuitpython
 time.sleep_ms(500)
 ```
 
 ## Supported Boards
 
-**⚠️ AVR-Only Support:** CircuitPython compatibility is currently **AVR-only**. Whisnake's only fully working codegen is for AVR chips (ATmega328P and compatible).
+**⚠️ AVR-Only Support:** CircuitPython compatibility is currently **AVR-only**. Whipsnake's only fully working codegen is for AVR chips (ATmega328P and compatible).
 
 The `board` module is auto-generated based on the `board` setting in `pyproject.toml`:
 
@@ -205,7 +205,7 @@ The `board` module is auto-generated based on the `board` setting in `pyproject.
 - PIC14/PIC18 - Requires PIC backend improvements for CircuitPython stdlib
 
 **Adding Custom AVR Boards:**
-1. Create `whisnake_circuitpython/boards/<your_board>.py` with pin definitions
+1. Create `whipsnake_circuitpython/boards/<your_board>.py` with pin definitions
 2. If needed, add to `board_chips.py`: `BOARD_CHIPS["your_board"] = "atmega328p"`
 3. Set `board = "your_board"` in `pyproject.toml`
 
@@ -230,12 +230,12 @@ MIT License - see LICENSE file for details
 ## Contributing
 
 Contributions welcome! Please open an issue or PR at:
-- Whisnake compiler: https://github.com/pymcu/pymcu
-- CircuitPython compat: https://github.com/pymcu/whisnake-circuitpython
+- Whipsnake compiler: https://github.com/pymcu/pymcu
+- CircuitPython compat: https://github.com/pymcu/whipsnake-circuitpython
 
 ## See Also
 
-- [Whisnake Documentation](https://whisnake.dev)
+- [Whipsnake Documentation](https://whisnake.dev)
 - [CircuitPython](https://circuitpython.org)
 - [Language Reference](https://whisnake.dev/language-reference)
 - [Migration Guide](https://whisnake.dev/migration/from-circuitpython)

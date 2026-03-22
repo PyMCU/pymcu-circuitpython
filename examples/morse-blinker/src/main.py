@@ -21,7 +21,7 @@
 import board
 import time
 from digitalio import DigitalInOut, Direction
-from whisnake.types import inline
+from whipsnake.types import inline
 
 
 @inline

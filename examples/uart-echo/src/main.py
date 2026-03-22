@@ -22,7 +22,7 @@
 import board
 import busio
 from digitalio import DigitalInOut, Direction
-from whisnake.types import uint8
+from whipsnake.types import uint8
 
 
 def main():

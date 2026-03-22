@@ -3,10 +3,10 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "whisnake-circuitpython"
+name = "whipsnake-circuitpython"
 version = "0.1.0a1"
-description = "CircuitPython stdlib flavor for Whisnake"
+description = "CircuitPython stdlib flavor for Whipsnake"
 requires-python = ">=3.11"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/whisnake_circuitpython"]
+packages = ["src/whipsnake_circuitpython"]

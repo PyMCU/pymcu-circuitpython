@@ -1,4 +1,4 @@
-# CircuitPython-compatible busio module for Whisnake
+# CircuitPython-compatible busio module for Whipsnake
 #
 # Provides a minimal UART class that mirrors CircuitPython's busio.UART API.
 # On ATmega328P the TX/RX pins are fixed (PD1 / PD0), so the tx and rx board
@@ -11,8 +11,8 @@
 #   uart.println("Hello")
 #   uart.print_byte(value)
 
-from whisnake.types import uint8, uint16, inline, const
-from whisnake.hal.uart import UART as _UART
+from whipsnake.types import uint8, uint16, inline, const
+from whipsnake.hal.uart import UART as _UART
 
 
 class UART:

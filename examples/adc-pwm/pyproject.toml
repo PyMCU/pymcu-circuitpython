@@ -3,9 +3,9 @@ name = "adc-pwm"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "whisnake-stdlib>=0.1.2a8",
+    "whipsnake-stdlib>=0.1.2a8",
     "whipsnake>=0.1.0a31",
-    "whisnake-circuitpython>=0.1.0a1",
+    "whipsnake-circuitpython>=0.1.0a1",
 ]
 
 [[tool.uv.index]]
@@ -14,9 +14,9 @@ url = "https://gitea.begeistert.dev/api/packages/begeistert/pypi/simple"
 explicit = true
 
 [tool.uv.sources]
-whisnake-stdlib = {index = "gitea"}
+whipsnake-stdlib = {index = "gitea"}
 whipsnake = {index = "gitea"}
-whisnake-circuitpython = {index = "gitea"}
+whipsnake-circuitpython = {index = "gitea"}
 
 [tool.whip]
 board     = "arduino_uno"
