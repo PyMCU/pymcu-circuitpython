@@ -11,7 +11,7 @@
 #       which is not available on bare-metal MCUs. This module provides compile-time
 #       constants where possible.
 
-from whipsnake.types import uint32, const
+from whipsnake.types import uint8, uint32, const
 from whipsnake.chips import device_info
 
 
