@@ -26,10 +26,10 @@
 #       spi.write(0xAB)              # write one byte
 #       val = spi.readinto()         # read one byte
 
-from whipsnake.types import uint8, uint16, inline, const
-from whipsnake.hal.uart import UART as _UART
-from whipsnake.hal.i2c import I2C as _I2C
-from whipsnake.hal.spi import SPI as _SPI
+from pymcu.types import uint8, uint16, inline, const
+from pymcu.hal.uart import UART as _UART
+from pymcu.hal.i2c import I2C as _I2C
+from pymcu.hal.spi import SPI as _SPI
 
 
 class UART:

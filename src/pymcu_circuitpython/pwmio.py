@@ -13,8 +13,8 @@
 #       Whipsnake's PWM.set_duty() uses 8-bit (0-255) on AVR Timer0/Timer2.
 #       We scale between the two representations.
 
-from whipsnake.types import uint8, uint16, inline
-from whipsnake.hal.pwm import PWM as _PWM
+from pymcu.types import uint8, uint16, inline
+from pymcu.hal.pwm import PWM as _PWM
 
 
 class PWMOut:

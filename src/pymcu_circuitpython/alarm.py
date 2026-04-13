@@ -22,9 +22,9 @@
 #   - light_sleep_until_alarms() is an alias for sleep_until_alarms() on AVR
 #     (no architectural distinction between light and deep sleep here).
 
-from whipsnake.types import uint8, uint16, inline
-from whipsnake.time import delay_ms
-from whipsnake.hal.gpio import Pin as _Pin
+from pymcu.types import uint8, uint16, inline
+from pymcu.time import delay_ms
+from pymcu.hal.gpio import Pin as _Pin
 
 
 # -- alarm.time submodule -----------------------------------------------------

@@ -3,10 +3,10 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "whipsnake-circuitpython"
+name = "pymcu-circuitpython"
 version = "0.1.0a1"
-description = "CircuitPython-compatible stdlib layer for Whipsnake (digitalio, analogio, busio, pwmio, neopixel, alarm, supervisor, time, microcontroller, board)"
+description = "CircuitPython-compatible stdlib layer for PyMCU (digitalio, analogio, busio, pwmio, neopixel, alarm, supervisor, time, microcontroller, board)"
 requires-python = ">=3.11"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/whipsnake_circuitpython"]
+packages = ["src/pymcu_circuitpython"]

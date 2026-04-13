@@ -13,8 +13,8 @@
 # Note: CircuitPython's AnalogIn.value returns a 16-bit value (0-65535).
 #       AVR's ADC is 10-bit (0-1023), so we scale by 64x to match CP behavior.
 
-from whipsnake.types import uint8, uint16, inline
-from whipsnake.hal.adc import AnalogPin as _AnalogPin
+from pymcu.types import uint8, uint16, inline
+from pymcu.hal.adc import AnalogPin as _AnalogPin
 
 
 class AnalogIn:

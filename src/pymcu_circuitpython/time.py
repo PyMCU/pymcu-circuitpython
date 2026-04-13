@@ -9,8 +9,8 @@
 #   time.sleep_ms(500)     # 500 ms
 #   time.sleep_us(100)     # 100 us
 
-from whipsnake.types import uint8, uint16, inline
-from whipsnake.time import delay_ms, delay_us
+from pymcu.types import uint8, uint16, inline
+from pymcu.time import delay_ms, delay_us
 
 
 @inline

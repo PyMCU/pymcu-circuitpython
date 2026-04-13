@@ -20,9 +20,9 @@
 #   - brightness scaling is not supported (zero-overhead constraint).
 #   - auto_write is accepted but always False on bare metal (manual show() required).
 
-from whipsnake.types import uint8, uint16, inline, const
-from whipsnake.drivers.neopixel import NeoPixel as _NeoPixel
-from whipsnake.types import asm
+from pymcu.types import uint8, uint16, inline, const
+from pymcu.drivers.neopixel import NeoPixel as _NeoPixel
+from pymcu.types import asm
 
 
 RGB  = 0

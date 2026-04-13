@@ -18,8 +18,8 @@
 #   - set_direction() / set_value() / get_value() are kept as explicit helpers
 #     for code that prefers the call style.
 
-from whipsnake.types import uint8, inline
-from whipsnake.hal.gpio import Pin as _Pin
+from pymcu.types import uint8, inline
+from pymcu.hal.gpio import Pin as _Pin
 
 
 class Direction:

@@ -7,8 +7,8 @@
 #   ms = supervisor.ticks_ms()      # milliseconds since boot (16-bit counter)
 #   supervisor.reload()             # software reset via watchdog
 
-from whipsnake.types import uint16, inline
-from whipsnake.time import delay_ms
+from pymcu.types import uint16, inline
+from pymcu.time import delay_ms
 
 
 @inline
@@ -31,7 +31,7 @@ def reload():
     Triggers an immediate reset via the watchdog timer with the shortest
     timeout (15 ms).
     """
-    from whipsnake.hal.watchdog import Watchdog as _Watchdog
+    from pymcu.hal.watchdog import Watchdog as _Watchdog
     wd = _Watchdog()
     wd.enable()
     # Spin until the watchdog fires
