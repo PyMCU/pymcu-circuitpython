@@ -1,4 +1,4 @@
-# CircuitPython-compatible pwmio module for Whipsnake
+# CircuitPython-compatible pwmio module for PyMCU
 #
 # Provides PWMOut class that mirrors CircuitPython's pwmio.PWMOut API.
 #
@@ -10,7 +10,7 @@
 #   pwm.duty_cycle = 49152                     # 75% duty cycle
 #
 # Note: CircuitPython's PWMOut.duty_cycle is 16-bit (0-65535).
-#       Whipsnake's PWM.set_duty() uses 8-bit (0-255) on AVR Timer0/Timer2.
+#       PyMCU's PWM.set_duty() uses 8-bit (0-255) on AVR Timer0/Timer2.
 #       We scale between the two representations.
 
 from pymcu.types import uint8, uint16, inline
@@ -21,7 +21,7 @@ class PWMOut:
     @inline
     def __init__(self, pin_name, duty_cycle: uint16 = 0, frequency: uint16 = 0):
         # CircuitPython duty_cycle is 16-bit (0-65535)
-        # Convert to 8-bit (0-255) for Whipsnake PWM
+        # Convert to 8-bit (0-255) for PyMCU PWM
         duty8: uint8 = (duty_cycle >> 8) & 0xFF
         self._pwm = _PWM(pin_name, duty=duty8)
         self._pwm.start()
@@ -31,7 +31,7 @@ class PWMOut:
     @property
     def duty_cycle(self) -> uint16:
         """Get duty cycle as 16-bit value (0-65535) to match CircuitPython."""
-        # Whipsnake doesn't expose duty getter, so we track it internally
+        # PyMCU doesn't expose duty getter, so we track it internally
         return self._duty_cycle_16
 
     @duty_cycle.setter

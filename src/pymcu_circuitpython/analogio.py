@@ -1,4 +1,4 @@
-# CircuitPython-compatible analogio module for Whipsnake
+# CircuitPython-compatible analogio module for PyMCU
 #
 # Provides AnalogIn class that mirrors CircuitPython's analogio.AnalogIn API.
 #

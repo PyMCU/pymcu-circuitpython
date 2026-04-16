@@ -1,4 +1,4 @@
-# CircuitPython-compatible alarm module for Whipsnake
+# CircuitPython-compatible alarm module for PyMCU
 #
 # Provides PinAlarm and TimeAlarm classes, and sleep_until_alarms().
 #
@@ -18,7 +18,7 @@
 #   - TimeAlarm uses delay_ms() -- it blocks but is power-optimal in the
 #     absence of a tickless RTOS. Use power.sleep_idle() for true low-power sleep.
 #   - PinAlarm polls the pin in a tight loop. For true interrupt-driven wake,
-#     use whipsnake.hal.gpio Pin with an interrupt handler directly.
+#     use pymcu.hal.gpio Pin with an interrupt handler directly.
 #   - light_sleep_until_alarms() is an alias for sleep_until_alarms() on AVR
 #     (no architectural distinction between light and deep sleep here).
 

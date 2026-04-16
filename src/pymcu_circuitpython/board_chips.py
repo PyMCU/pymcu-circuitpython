@@ -1,9 +1,9 @@
 # Board -> chip mapping for boards known to the CircuitPython flavor.
-# The Whipsnake build driver merges this into its own BOARD_CHIPS dict at build time.
+# The PyMCU build driver merges this into its own BOARD_CHIPS dict at build time.
 # Extension entries take precedence over the built-in driver mapping.
 #
 # IMPORTANT: Only add boards for chips with FULLY WORKING codegen support.
-# As of now, Whipsnake only has complete AVR codegen. Do not add boards for
+# As of now, PyMCU only has complete AVR codegen. Do not add boards for
 # unsupported architectures (SAMD21, RP2040, PIC18, etc.) until their
 # backends are fully implemented and tested.
 #

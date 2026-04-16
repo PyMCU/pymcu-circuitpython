@@ -1,4 +1,4 @@
-# CircuitPython-compatible digitalio module for Whipsnake
+# CircuitPython-compatible digitalio module for PyMCU
 #
 # Provides DigitalInOut, Direction, and Pull as ZCA (zero-cost) classes that
 # mirror the CircuitPython digitalio API.

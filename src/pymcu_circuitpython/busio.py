@@ -1,4 +1,4 @@
-# CircuitPython-compatible busio module for Whipsnake
+# CircuitPython-compatible busio module for PyMCU
 #
 # Provides UART, I2C, and SPI classes that mirror CircuitPython's busio API.
 #

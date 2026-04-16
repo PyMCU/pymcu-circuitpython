@@ -21,7 +21,7 @@
 import board
 import time
 from digitalio import DigitalInOut, Direction
-from whipsnake.types import inline
+from pymcu.types import inline
 
 
 @inline

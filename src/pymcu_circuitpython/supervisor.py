@@ -1,4 +1,4 @@
-# CircuitPython-compatible supervisor module for Whipsnake
+# CircuitPython-compatible supervisor module for PyMCU
 #
 # Provides a minimal subset of CircuitPython's supervisor module.
 #
@@ -17,8 +17,8 @@ def ticks_ms() -> uint16:
 
     On AVR this is a software counter incremented by the compiler runtime.
     Not suitable for long-duration timing; use delay_ms() for that.
-    Note: In Whipsnake, this returns 0 as the compiler does not maintain
-    a system tick counter by default. Use whipsnake.hal.timer for precise timing.
+    Note: In PyMCU, this returns 0 as the compiler does not maintain
+    a system tick counter by default. Use pymcu.hal.timer for precise timing.
     """
     # Compile-time constant 0 -- a proper tick counter requires a timer interrupt.
     return 0

@@ -20,9 +20,9 @@
 #      ~28 us = 0,  ~70 us = 1  (threshold: 40 us)
 #   4. Checksum = lower 8 bits of sum of the first 4 bytes
 
-from whipsnake.types import uint8, uint16, inline
-from whipsnake.hal.gpio import Pin as _Pin
-from whipsnake.time import delay_ms, delay_us
+from pymcu.types import uint8, uint16, inline
+from pymcu.hal.gpio import Pin as _Pin
+from pymcu.time import delay_ms, delay_us
 
 
 class DHT11:

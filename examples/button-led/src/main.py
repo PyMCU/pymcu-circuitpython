@@ -16,7 +16,7 @@
 import board
 import time
 from digitalio import DigitalInOut, Direction, Pull
-from whipsnake.types import uint8
+from pymcu.types import uint8
 
 
 def main():
