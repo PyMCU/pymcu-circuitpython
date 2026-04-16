@@ -1,4 +1,4 @@
-# CircuitPython-compatible neopixel module for Whipsnake
+# CircuitPython-compatible neopixel module for PyMCU
 #
 # Provides a NeoPixel class that mirrors CircuitPython's neopixel.NeoPixel API.
 #
@@ -11,7 +11,7 @@
 #   pixels[0] = (0, 255, 0)                       # set pixel 0 to green
 #   pixels.show()                                  # latch
 #
-# Note: The NeoPixel class uses the whipsnake.drivers.neopixel driver
+# Note: The NeoPixel class uses the pymcu.drivers.neopixel driver
 #       which sends WS2812 GRB protocol. Global interrupts must be disabled
 #       during show() for correct timing; the driver handles this internally.
 #

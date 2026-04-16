@@ -1,7 +1,7 @@
-# CircuitPython-compatible time module for Whipsnake
+# CircuitPython-compatible time module for PyMCU
 #
 # Provides sleep(), sleep_ms(), and sleep_us() that map directly to
-# the underlying Whipsnake delay functions (no runtime overhead).
+# the underlying PyMCU delay functions (no runtime overhead).
 #
 # Usage:
 #   import time

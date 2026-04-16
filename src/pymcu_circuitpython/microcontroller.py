@@ -1,4 +1,4 @@
-# CircuitPython-compatible microcontroller module for Whipsnake
+# CircuitPython-compatible microcontroller module for PyMCU
 #
 # Provides access to microcontroller-specific information and features.
 #
