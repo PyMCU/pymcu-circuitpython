@@ -14,7 +14,7 @@ Or add to your `pyproject.toml`:
 [project]
 dependencies = ["pymcu", "pymcu-circuitpython"]
 
-[tool.whip]
+[tool.pymcu]
 stdlib = ["circuitpython"]
 board = "arduino_uno"      # Auto-generates board.py with pin definitions
 frequency = 16000000
@@ -235,7 +235,6 @@ Contributions welcome! Please open an issue or PR at:
 
 ## See Also
 
-- [PyMCU Documentation](https://whisnake.dev)
+- [PyMCU Documentation](https://pymcu.dev)
 - [CircuitPython](https://circuitpython.org)
-- [Language Reference](https://whisnake.dev/language-reference)
-- [Migration Guide](https://whisnake.dev/migration/from-circuitpython)
+- [Language Reference](https://pymcu.dev/language-reference)
