@@ -11,7 +11,20 @@
 # This file is for additional CircuitPython-specific boards that use AVR chips.
 
 BOARD_CHIPS: dict = {
-    # Currently empty - all AVR Arduino boards are already in the driver
-    # Add AVR-based CircuitPython boards here when needed, e.g.:
-    # "adafruit_metro_m0_express": "atmega328p",  # if it existed
+    # ATtiny named dev boards (supplement to driver's built-in BOARD_CHIPS)
+    "digispark":        "attiny85",
+    "adafruit_trinket": "attiny85",
+    # ATtiny bare chips -- 8-pin
+    "attiny85":  "attiny85",
+    "attiny45":  "attiny45",
+    "attiny25":  "attiny25",
+    "attiny13":  "attiny13",
+    "attiny13a": "attiny13a",
+    # ATtiny bare chips -- 14-pin
+    "attiny84": "attiny84",
+    "attiny44": "attiny44",
+    "attiny24": "attiny24",
+    # ATtiny bare chips -- 20-pin
+    "attiny2313": "attiny2313",
+    "attiny4313": "attiny4313",
 }
