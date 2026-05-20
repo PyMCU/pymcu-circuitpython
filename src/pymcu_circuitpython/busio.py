@@ -26,7 +26,7 @@
 #       spi.write(0xAB)              # write one byte
 #       val = spi.readinto()         # read one byte
 
-from pymcu.types import uint8, uint16, inline, const
+from pymcu.types import uint8, uint16, uint32, inline, const
 from pymcu.hal.uart import UART as _UART
 from pymcu.hal.i2c import I2C as _I2C
 from pymcu.hal.spi import SPI as _SPI

@@ -23,6 +23,7 @@ class PWMOut:
         # CircuitPython duty_cycle is 16-bit (0-65535)
         # Convert to 8-bit (0-255) for PyMCU PWM
         duty8: uint8 = (duty_cycle >> 8) & 0xFF
+        self._duty_cycle_16 = duty_cycle
         self._pwm = _PWM(pin_name, duty=duty8)
         self._pwm.start()
         # Note: frequency parameter is accepted for API compatibility
