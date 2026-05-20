@@ -38,6 +38,9 @@ A2 = "PC2"
 A3 = "PC3"
 A4 = "PC4"
 A5 = "PC5"
+# Nano-specific ADC-only pins (no GPIO port connection)
+A6 = "ADC6"
+A7 = "ADC7"
 
 # CircuitPython canonical aliases
 LED         = "PB5"   # Built-in LED (D13)
