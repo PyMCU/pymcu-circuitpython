@@ -17,4 +17,4 @@ stdlib    = ["circuitpython"]
 
 [tool.pymcu.flash]
 programmer = "avrdude"
-port       = "/dev/cu.usbmodem14101"
+port       = "/dev/cu.usbmodem114101"
