@@ -7,21 +7,39 @@
 #   ms = supervisor.ticks_ms()      # milliseconds since boot (16-bit counter)
 #   supervisor.reload()             # software reset via watchdog
 
-from pymcu.types import uint16, inline
+from pymcu.types import uint8, uint16, uint32, inline
 from pymcu.time import delay_ms
 
 
 @inline
-def ticks_ms() -> uint16:
-    """Returns a 16-bit millisecond counter (wraps at 65535).
+def ticks_ms() -> uint32:
+    """Milliseconds since power-on (uint32, wraps at ~49 days).
 
-    On AVR this is a software counter incremented by the compiler runtime.
-    Not suitable for long-duration timing; use delay_ms() for that.
-    Note: In PyMCU, this returns 0 as the compiler does not maintain
-    a system tick counter by default. Use pymcu.hal.timer for precise timing.
+    On AVR: uses Timer0 millis() counter. Requires millis_init() to have been
+    called at startup; the PyMCU build driver injects this automatically when
+    ticks_ms() is detected in user code.
     """
-    # Compile-time constant 0 -- a proper tick counter requires a timer interrupt.
-    return 0
+    from pymcu.hal.timer import millis as _millis
+    return _millis()
+
+
+@inline
+def ticks_add(ticks: uint32, delta: uint32) -> uint32:
+    """Add delta to ticks, wrapping at the 32-bit boundary.
+
+    Compatible with CircuitPython's supervisor.ticks_add().
+    """
+    return ticks + delta
+
+
+@inline
+def ticks_diff(new_ticks: uint32, old_ticks: uint32) -> uint32:
+    """Compute elapsed milliseconds between two ticks_ms() readings.
+
+    Returns (new_ticks - old_ticks), handling uint32 wrap-around.
+    Note: CircuitPython uses a 29-bit counter; here we use 32-bit.
+    """
+    return new_ticks - old_ticks
 
 
 @inline
@@ -34,7 +52,6 @@ def reload():
     from pymcu.hal.watchdog import Watchdog as _Watchdog
     wd = _Watchdog()
     wd.enable()
-    # Spin until the watchdog fires
     while True:
         pass
 
