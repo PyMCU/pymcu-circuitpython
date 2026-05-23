@@ -19,31 +19,56 @@ from pymcu.hal.pwm import PWM as _PWM
 
 class PWMOut:
     @inline
-    def __init__(self, pin_name, duty_cycle: uint16 = 0, frequency: uint16 = 0):
-        # CircuitPython duty_cycle is 16-bit (0-65535)
-        # Convert to 8-bit (0-255) for PyMCU PWM
+    def __init__(self, pin_name, *, duty_cycle: uint16 = 0, frequency: uint16 = 500,
+                 variable_frequency: uint8 = 0):
         duty8: uint8 = (duty_cycle >> 8) & 0xFF
-        self._duty_cycle_16 = duty_cycle
-        self._pwm = _PWM(pin_name, duty=duty8)
+        self._duty_cycle_16   = duty_cycle
+        self._frequency       = frequency
+        self._variable_freq   = variable_frequency
+        self._pwm = _PWM(pin_name, duty8, frequency)
         self._pwm.start()
-        # Note: frequency parameter is accepted for API compatibility
-        # but AVR Timer0 Fast PWM frequency is fixed at F_CPU/256
 
     @property
     def duty_cycle(self) -> uint16:
         """Get duty cycle as 16-bit value (0-65535) to match CircuitPython."""
-        # PyMCU doesn't expose duty getter, so we track it internally
         return self._duty_cycle_16
 
     @duty_cycle.setter
     def duty_cycle(self, val: uint16):
         """Set duty cycle from 16-bit value (0-65535)."""
         self._duty_cycle_16 = val
-        # Convert 16-bit to 8-bit by taking high byte
         duty8: uint8 = (val >> 8) & 0xFF
         self._pwm.set_duty(duty8)
+
+    @property
+    def frequency(self) -> uint16:
+        """Get PWM frequency in Hz."""
+        return self._frequency
+
+    @frequency.setter
+    def frequency(self, val: uint16):
+        """Set PWM frequency (only valid when variable_frequency=True)."""
+        self._frequency = val
+
+    @property
+    def variable_frequency(self) -> uint8:
+        """Returns 1 if variable_frequency was set at construction time."""
+        return self._variable_freq
+
+    @property
+    def enabled(self) -> uint8:
+        """PWM output is enabled after __init__ and until deinit()."""
+        return 1
 
     @inline
     def deinit(self):
         """Stop PWM output."""
         self._pwm.stop()
+
+    @inline
+    def __enter__(self):
+        pass
+
+    @inline
+    def __exit__(self):
+        self.deinit()
