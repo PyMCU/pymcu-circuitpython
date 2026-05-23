@@ -51,6 +51,16 @@ class NeoPixel:
         self._order = pixel_order
 
     @inline
+    def __len__(self) -> uint8:
+        """Return number of pixels in the strip."""
+        return self._n
+
+    @property
+    def brightness(self) -> uint8:
+        """Brightness level (1 = full, stored for API compatibility; not scaled on bare metal)."""
+        return 1
+
+    @inline
     def fill(self, r: uint8, g: uint8, b: uint8):
         """Fill all pixels with (r, g, b). Call show() to latch."""
         i: uint8 = 0
