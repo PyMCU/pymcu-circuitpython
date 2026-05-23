@@ -227,6 +227,14 @@ class TestNeoPixel:
         px.fill(0, 0, 255)
         px.show()
 
+    def test_len(self):
+        px = NeoPixel(arduino_uno.D6, 8)
+        assert len(px) == 8
+
+    def test_brightness_default(self):
+        px = NeoPixel(arduino_uno.D6, 8)
+        assert px.brightness == 1
+
 
 # ── supervisor ────────────────────────────────────────────────────────────── #
 
@@ -235,9 +243,17 @@ class TestSupervisor:
         t = supervisor.ticks_ms()
         assert isinstance(t, int)
 
-    def test_ticks_ms_is_zero(self):
-        # Stub always returns 0
+    def test_ticks_ms_from_millis_mock(self):
+        # millis mock returns 0, so ticks_ms() == 0
         assert supervisor.ticks_ms() == 0
+
+    def test_ticks_add(self):
+        result = supervisor.ticks_add(1000, 250)
+        assert result == 1250
+
+    def test_ticks_diff(self):
+        result = supervisor.ticks_diff(1500, 1000)
+        assert result == 500
 
     def test_runtime_is_none(self):
         assert supervisor.runtime is None
@@ -257,6 +273,17 @@ class TestMicrocontroller:
     def test_cpu_reset_raises(self):
         with pytest.raises(NotImplementedError):
             microcontroller.cpu.reset()
+
+    def test_cpu_uid_is_tuple(self):
+        uid = microcontroller.cpu.uid
+        assert isinstance(uid, tuple)
+        assert len(uid) == 8
+
+    def test_cpu_voltage(self):
+        assert microcontroller.cpu.voltage == 5
+
+    def test_module_delay_us(self):
+        microcontroller.delay_us(100)
 
 
 # ── alarm ─────────────────────────────────────────────────────────────────── #
@@ -381,3 +408,37 @@ class TestTypicalWorkflows:
         for r, g, b in [(255, 0, 0), (0, 255, 0), (0, 0, 255)]:
             px.fill(r, g, b)
             px.show()
+
+    def test_digitalio_context_manager(self):
+        """DigitalInOut as context manager: deinit() called on exit."""
+        pin = DigitalInOut(arduino_uno.D13)
+        pin.__enter__()
+        pin.direction = Direction.OUTPUT
+        pin.value = 1
+        pin.__exit__()
+        assert pin.direction == Direction.INPUT
+
+    def test_digitalio_switch_to_output(self):
+        pin = DigitalInOut(arduino_uno.D2)
+        pin.switch_to_output(value=0)
+        assert pin.direction == Direction.OUTPUT
+
+    def test_digitalio_switch_to_input_with_pull(self):
+        pin = DigitalInOut(arduino_uno.D2)
+        pin.switch_to_input(pull=Pull.UP)
+        assert pin.direction == Direction.INPUT
+        assert pin.pull == Pull.UP
+
+    def test_i2c_writeto_then_readfrom(self):
+        """Repeated-start I2C read (common sensor pattern)."""
+        i2c = I2C(arduino_uno.SCL, arduino_uno.SDA)
+        val = i2c.writeto_then_readfrom(0x68, 0x3B)
+        assert isinstance(val, int)
+
+    def test_pwm_frequency_property(self):
+        pwm = PWMOut(arduino_uno.D6, frequency=1000)
+        assert pwm.frequency == 1000
+
+    def test_uart_baudrate_via_board(self):
+        uart = UART(arduino_uno.TX, arduino_uno.RX, baudrate=115200)
+        assert uart.baudrate == 115200

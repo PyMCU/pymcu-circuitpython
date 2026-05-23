@@ -46,7 +46,7 @@ def _install_hal_mocks() -> None:
             self._mode = m
 
         def pull(self, p):    pass
-        def irq(self, trigger): pass
+        def irq(self, trigger=None, handler=None): pass
 
     class _MockUART:
         def __init__(self, baudrate=9600): pass
@@ -62,7 +62,7 @@ def _install_hal_mocks() -> None:
         def read(self):          return 0
 
     class _MockPWM:
-        def __init__(self, pin, duty=0): pass
+        def __init__(self, pin, duty=0, freq=500): pass
         def start(self):          pass
         def stop(self):           pass
         def set_duty(self, d):    pass
@@ -105,6 +105,7 @@ def _install_hal_mocks() -> None:
     _reg("spi",      SPI=_MockSPI)
     _reg("i2c",      I2C=_MockI2C)
     _reg("watchdog", Watchdog=MagicMock)
+    _reg("timer",    millis=lambda: 0, millis_init=lambda: None)
 
     # --- pymcu.time (time.py / utime.py import delay_ms, delay_us) ------ #
     # The real pymcu.time imports __CHIP__ from pymcu.chips at module load,
