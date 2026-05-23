@@ -115,6 +115,50 @@ class DigitalInOut:
                 self._pin.mode(_Pin.OUT)
 
     # ------------------------------------------------------------------
+    # switch_to helpers (CircuitPython API)
+    # ------------------------------------------------------------------
+
+    @inline
+    def switch_to_output(self, value: uint8 = 0, drive_mode: uint8 = DriveMode.PUSH_PULL):
+        """Configure pin as output with optional initial value and drive mode."""
+        self._direction  = Direction.OUTPUT
+        self._drive_mode = drive_mode
+        self._pin.mode(_Pin.OUT)
+        match value:
+            case 0:
+                self._pin.low()
+            case _:
+                self._pin.high()
+
+    @inline
+    def switch_to_input(self, pull: uint8 = Pull.NONE):
+        """Configure pin as input with optional pull resistor."""
+        self._direction = Direction.INPUT
+        self._pull_mode = pull
+        self._pin.mode(_Pin.IN)
+        self._pin.pull(pull)
+
+    # ------------------------------------------------------------------
+    # deinit / context manager (CircuitPython API)
+    # ------------------------------------------------------------------
+
+    @inline
+    def deinit(self):
+        """Release the pin resource (sets pin back to input, no pull)."""
+        self._pin.mode(_Pin.IN)
+        self._pull_mode  = Pull.NONE
+        self._drive_mode = DriveMode.PUSH_PULL
+        self._direction  = Direction.INPUT
+
+    @inline
+    def __enter__(self):
+        pass
+
+    @inline
+    def __exit__(self):
+        self.deinit()
+
+    # ------------------------------------------------------------------
     # Explicit call-style helpers (kept for backwards compatibility)
     # ------------------------------------------------------------------
 

@@ -83,3 +83,50 @@ def test_digital_in_out_helper_get_set_value():
     assert pin.get_value() == 0
     pin.set_value(1)  # should not raise
     pin.set_value(0)  # should not raise
+
+
+def test_switch_to_output():
+    pin = DigitalInOut("PB5")
+    pin.switch_to_output(value=0)
+    assert pin.direction == Direction.OUTPUT
+
+
+def test_switch_to_output_with_value_1():
+    pin = DigitalInOut("PB5")
+    pin.switch_to_output(value=1)
+    assert pin.direction == Direction.OUTPUT
+
+
+def test_switch_to_output_with_drive_mode():
+    pin = DigitalInOut("PB5")
+    pin.switch_to_output(value=0, drive_mode=DriveMode.PUSH_PULL)
+    assert pin.drive_mode == DriveMode.PUSH_PULL
+
+
+def test_switch_to_input():
+    pin = DigitalInOut("PB5")
+    pin.direction = Direction.OUTPUT
+    pin.switch_to_input()
+    assert pin.direction == Direction.INPUT
+
+
+def test_switch_to_input_with_pull():
+    pin = DigitalInOut("PB5")
+    pin.switch_to_input(pull=Pull.UP)
+    assert pin.direction == Direction.INPUT
+    assert pin.pull == Pull.UP
+
+
+def test_deinit():
+    pin = DigitalInOut("PB5")
+    pin.direction = Direction.OUTPUT
+    pin.deinit()
+    assert pin.direction == Direction.INPUT
+
+
+def test_context_manager():
+    pin = DigitalInOut("PB5")
+    pin.__enter__()
+    pin.direction = Direction.OUTPUT
+    pin.__exit__()
+    assert pin.direction == Direction.INPUT
