@@ -25,22 +25,36 @@ class AnalogIn:
     @property
     def value(self) -> uint16:
         """Read ADC value scaled to 16-bit (0-65535) to match CircuitPython."""
-        # AVR ADC is 10-bit (0-1023), scale to 16-bit by shifting left 6 bits (multiply by 64)
         self._adc.start()
-        # Poll ADCSRA[6] (ADSC) to wait for conversion
-        # Then read ADCL/ADCH (implementation in AnalogPin.read())
         raw10: uint16 = self._adc.read()
         return raw10 << 6  # Scale 10-bit to 16-bit
+
+    @property
+    def reference_voltage(self) -> uint8:
+        """Reference voltage in volts (5 V on standard 5 V AVR boards)."""
+        return 5
 
     @inline
     def read_u16(self) -> uint16:
         """Alias for .value property (MicroPython compatibility)."""
         return self.value
 
+    @inline
+    def deinit(self):
+        """Release the ADC resource (no-op on bare metal)."""
+        pass
+
+    @inline
+    def __enter__(self):
+        pass
+
+    @inline
+    def __exit__(self):
+        self.deinit()
+
 
 class AnalogOut:
     """AnalogOut is not supported on AVR (no DAC)."""
     @inline
     def __init__(self, pin_name):
-        # Raise compile-time error
         raise NotImplementedError("AnalogOut requires a DAC (not available on AVR)")

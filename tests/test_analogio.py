@@ -30,3 +30,22 @@ def test_analog_in_value_is_in_range():
 def test_analog_out_raises_not_implemented():
     with pytest.raises((NotImplementedError, Exception)):
         AnalogOut("PC0")
+
+
+def test_reference_voltage():
+    adc = AnalogIn("PC0")
+    v = adc.reference_voltage
+    assert v == 5
+
+
+def test_deinit():
+    adc = AnalogIn("PC0")
+    adc.deinit()  # must not raise
+
+
+def test_context_manager():
+    adc = AnalogIn("PC0")
+    adc.__enter__()
+    v = adc.value
+    adc.__exit__()
+    assert v == 0
