@@ -34,10 +34,22 @@ from pymcu.hal.spi import SPI as _SPI
 
 class UART:
     @inline
-    def __init__(self, tx, rx, baudrate: uint16 = 9600):
+    def __init__(self, tx, rx, *, baudrate: uint16 = 9600, bits: uint8 = 8,
+                 parity: uint8 = 0, stop: uint8 = 1):
         # tx/rx accepted for API compatibility; hardware pins are fixed on
         # ATmega328P (PD1=TX, PD0=RX) and configured inside _UART.__init__.
-        self._hw = _UART(baudrate)
+        self._hw       = _UART(baudrate)
+        self._baudrate = baudrate
+
+    @property
+    def baudrate(self) -> uint16:
+        """Current baud rate."""
+        return self._baudrate
+
+    @property
+    def in_waiting(self) -> uint8:
+        """Number of bytes waiting in the receive buffer (0 = unknown/empty)."""
+        return 0
 
     @inline
     def write(self, data: uint8):
@@ -58,6 +70,24 @@ class UART:
     @inline
     def read(self) -> uint8:
         return self._hw.read()
+
+    @inline
+    def readline(self) -> uint8:
+        """Read until newline (returns last byte read; minimal AVR implementation)."""
+        return self._hw.read()
+
+    @inline
+    def deinit(self):
+        """Release UART resource (no-op on bare metal)."""
+        pass
+
+    @inline
+    def __enter__(self):
+        pass
+
+    @inline
+    def __exit__(self):
+        self.deinit()
 
 
 class I2C:
@@ -130,6 +160,21 @@ class I2C:
         return self._bus.read_from(address)
 
     @inline
+    def writeto_then_readfrom(self, address: uint8, out: uint8) -> uint8:
+        """Write one byte then immediately read one byte from the same device.
+
+        Maps to a repeated-start I2C transfer: START, write address+out,
+        repeated-START, read one byte from address, STOP.
+        """
+        self._bus.write_to(address, out)
+        return self._bus.read_from(address)
+
+    @inline
+    def deinit(self):
+        """Release I2C bus resource (no-op on bare metal)."""
+        self._locked = 0
+
+    @inline
     def __enter__(self):
         self._bus.start()
 
@@ -197,6 +242,11 @@ class SPI:
     def deselect(self):
         """Deassert chip-select (pull CS high)."""
         self._bus.deselect()
+
+    @inline
+    def deinit(self):
+        """Release SPI bus resource (no-op on bare metal)."""
+        pass
 
     @inline
     def __enter__(self):

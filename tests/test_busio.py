@@ -113,3 +113,60 @@ def test_spi_context_manager():
     spi = SPI("PB5")
     spi.__enter__()
     spi.__exit__()
+
+
+def test_uart_baudrate_property():
+    from pymcu_circuitpython.busio import UART
+    uart = UART("TX", "RX", baudrate=9600)
+    assert uart.baudrate == 9600
+
+
+def test_uart_baudrate_custom():
+    from pymcu_circuitpython.busio import UART
+    uart = UART("TX", "RX", baudrate=115200)
+    assert uart.baudrate == 115200
+
+
+def test_uart_in_waiting():
+    from pymcu_circuitpython.busio import UART
+    uart = UART("TX", "RX")
+    assert uart.in_waiting == 0
+
+
+def test_uart_readline():
+    from pymcu_circuitpython.busio import UART
+    uart = UART("TX", "RX")
+    b = uart.readline()
+    assert isinstance(b, int)
+
+
+def test_uart_deinit():
+    from pymcu_circuitpython.busio import UART
+    uart = UART("TX", "RX")
+    uart.deinit()  # must not raise
+
+
+def test_uart_context_manager():
+    from pymcu_circuitpython.busio import UART
+    uart = UART("TX", "RX")
+    uart.__enter__()
+    uart.__exit__()
+
+
+def test_i2c_deinit():
+    from pymcu_circuitpython.busio import I2C
+    i2c = I2C("SCL", "SDA")
+    i2c.deinit()
+
+
+def test_i2c_writeto_then_readfrom():
+    from pymcu_circuitpython.busio import I2C
+    i2c = I2C("SCL", "SDA")
+    result = i2c.writeto_then_readfrom(0x68, 0x3B)
+    assert isinstance(result, int)
+
+
+def test_spi_deinit():
+    from pymcu_circuitpython.busio import SPI
+    spi = SPI("SCK")
+    spi.deinit()
