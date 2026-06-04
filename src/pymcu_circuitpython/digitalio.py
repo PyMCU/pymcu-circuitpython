@@ -181,3 +181,7 @@ class DigitalInOut:
                 self._pin.low()
             case _:
                 self._pin.high()
+
+    @inline
+    def toggle(self):
+        self._pin.toggle()
