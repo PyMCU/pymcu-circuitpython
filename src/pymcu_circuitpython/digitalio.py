@@ -18,7 +18,7 @@
 #   - set_direction() / set_value() / get_value() are kept as explicit helpers
 #     for code that prefers the call style.
 
-from pymcu.types import uint8, inline
+from pymcu.types import uint8, inline, Callable
 from pymcu.hal.gpio import Pin as _Pin
 
 
@@ -185,3 +185,15 @@ class DigitalInOut:
     @inline
     def toggle(self):
         self._pin.toggle()
+
+    # ------------------------------------------------------------------
+    # irq -- PyMCU extension (not standard CircuitPython digitalio API)
+    # ------------------------------------------------------------------
+
+    @inline
+    def irq(self, handler: Callable = 0, trigger: uint8 = 1):
+        # Registers handler at the correct AVR ISR vector via compile_isr().
+        # trigger: 1 = falling edge, 2 = rising edge (matches machine.Pin constants).
+        # PyMCU deviation: handler takes no arguments; use a global variable to
+        # communicate state between the ISR and the main loop.
+        self._pin.irq(trigger, handler)
