@@ -5,7 +5,7 @@
 #
 # Usage:
 #   import time
-#   time.sleep(1)          # 1 second
+#   time.sleep(0.5)        # 500 ms (float seconds; folded at compile time)
 #   time.sleep_ms(500)     # 500 ms
 #   time.sleep_us(100)     # 100 us
 
@@ -14,9 +14,9 @@ from pymcu.time import delay_ms, delay_us
 
 
 @inline
-def sleep(seconds: uint16):
-    # CircuitPython's sleep() takes a float; on MCUs we use integer seconds.
-    delay_ms(seconds * 1000)
+def sleep(seconds: float):
+    # Accept a float (e.g. 0.5) and fold seconds*1000 to ms at compile time.
+    delay_ms(uint16(seconds * 1000))
 
 
 @inline
