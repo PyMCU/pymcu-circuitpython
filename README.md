@@ -239,6 +239,7 @@ See `examples/` directory for complete projects:
 - `morse-blinker/` - Morse code SOS pattern
 - `traffic-light/` - Traffic light state machine
 - `dht-sensor/` - DHT11 temperature/humidity sensor
+- `neopixel/` - Addressable WS2812 strip (`fill`, `pixels[i] = (r, g, b)`, `show`)
 
 ## License
 
