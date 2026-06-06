@@ -32,12 +32,15 @@ frequency = 16000000
 | Module | Classes/Functions | Status | Notes |
 |--------|------------------|--------|-------|
 | `board` | Pin constants (D0-D13, A0-A5, LED, TX, RX, etc.) | ✅ Complete | Arduino Uno pin mapping |
-| `digitalio` | `DigitalInOut`, `Direction`, `Pull`, `DriveMode` | ✅ Complete | ZCA properties for `.direction`, `.value`, `.pull`, `.drive_mode` |
-| `analogio` | `AnalogIn`, `AnalogOut` | ✅ Complete | 16-bit ADC values (scaled from 10-bit), AnalogOut raises error (no DAC) |
-| `busio` | `UART`, `SPI`, `I2C` | ⚠️ Partial | UART complete, SPI/I2C TODO |
+| `digitalio` | `DigitalInOut`, `Direction`, `Pull`, `DriveMode` | ✅ Complete | ZCA properties `.direction`, `.value`, `.pull`, `.drive_mode`; `pull=None` and `Pull.UP` (AVR has no pull-down) |
+| `analogio` | `AnalogIn`, `AnalogOut` | ✅ Complete | 16-bit ADC values (scaled from 10-bit); `reference_voltage` float; `AnalogOut` unsupported (no DAC) |
+| `busio` | `UART`, `SPI`, `I2C` | ✅ Complete | Buffer-based `write`/`readinto`/`writeto`/`readfrom_into`/`write_readinto`; `read()`/`scan()` return heap objects → use `readinto`/`probe` |
 | `pwmio` | `PWMOut` | ✅ Complete | 16-bit duty cycle (scaled to 8-bit Timer0/Timer2) |
-| `time` | `sleep()`, `sleep_ms()`, `sleep_us()` | ✅ Complete | Integer seconds (no float) |
-| `microcontroller` | `cpu.frequency`, `Pin` | ⚠️ Partial | Compile-time constants only |
+| `time` | `sleep()`, `monotonic()`, `monotonic_ns()` | ✅ Complete | `sleep(0.5)` float seconds; `monotonic()` float (soft-float) |
+| `supervisor` | `ticks_ms/add/diff`, `reload`, `runtime` | ✅ Complete | 2²⁹ ms wrap and signed `ticks_diff`, matching CircuitPython |
+| `microcontroller` | `cpu.frequency/temperature/voltage/uid`, `reset()`, `delay_us()` | ✅ Complete | `reset()` via watchdog; `temperature`/`voltage` soft-float; `uid` unavailable on AVR |
+| `neopixel` | `NeoPixel` | ⚠️ Partial | Whole-strip `fill(0xRRGGBB)`; individual `pixels[i]=` needs a framebuffer (not supported) |
+| `alarm` | `TimeAlarm`, `PinAlarm`, `sleep_until_alarms` | ✅ Complete | `TimeAlarm` uses absolute `monotonic_time` (soft-float); `PinAlarm` polls |
 
 ### Feature Comparison
 
@@ -47,11 +50,23 @@ frequency = 16000000
 | `led.value = True` | ✅ | ✅ |
 | `adc.value` (16-bit) | ✅ | ✅ |
 | `pwm.duty_cycle = 32768` | ✅ | ✅ |
-| `uart.write(b"hello")` | ✅ | ⚠️ `uart.write_str("hello")` |
-| `time.sleep(0.5)` | ✅ | ⚠️ `time.sleep_ms(500)` |
-| `time.sleep_ms(100)` | ✅ | ✅ |
+| `uart.write(b"hello")` | ✅ | ✅ |
+| `uart.readinto(buf)` | ✅ | ✅ (buf is a `uint8[N]`) |
+| `time.sleep(0.5)` | ✅ | ✅ |
+| `supervisor.ticks_diff(a, b)` | ✅ | ✅ |
+| `microcontroller.reset()` | ✅ | ✅ (watchdog) |
 | `import board` | ✅ | ✅ |
 | `board.LED` | ✅ | ✅ |
+
+### Known limitations (not implementable on bare-metal AVR)
+
+- `uart.read()/readline()` and `i2c.scan()` return heap objects (`bytes`/`list`);
+  use `uart.readinto(buf)` and `i2c.probe(addr)` instead.
+- `analogio.AnalogOut` requires a DAC (absent on AVR).
+- `neopixel`: individual `pixels[i] = color` and `(r, g, b)` tuple colours need a
+  per-strip framebuffer / tuple-literal arguments not yet supported; use
+  `fill(0xRRGGBB)` for whole-strip colour.
+- Receive buffers are fixed-size `uint8[N]` arrays rather than `bytearray(N)`.
 
 ## Quick Start
 
@@ -60,7 +75,7 @@ frequency = 16000000
 ```python
 import board
 from digitalio import DigitalInOut, Direction
-from time import sleep_ms
+from time import sleep
 
 
 def main():
@@ -69,9 +84,9 @@ def main():
 
     while True:
         led.value = True
-        sleep_ms(500)
+        sleep(0.5)
         led.value = False
-        sleep_ms(500)
+        sleep(0.5)
 ```
 
 ### ADC + PWM Example
