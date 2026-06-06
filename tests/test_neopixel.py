@@ -8,26 +8,21 @@ def test_construct_and_len():
     assert pixels.n == 8
 
 
-def test_fill_tuple_sets_every_pixel():
-    # CircuitPython idiom: fill with an (r, g, b) tuple.
-    calls = []
-
-    class _RecordingStrip:
-        def __init__(self, pin, n):
-            self._n = n
-
-        def set_pixel(self, r, g, b):
-            calls.append((r, g, b))
-
-        def show(self):
-            calls.append("show")
-
+def test_fill_tuple_writes_framebuffer_grb():
+    # CircuitPython idiom: fill with an (r, g, b) tuple. The framebuffer is in
+    # WS2812 wire (GRB) order, so red (255, 0, 0) -> bytes G=0, R=255, B=0.
     pixels = neopixel.NeoPixel("PD6", 3)
-    pixels._strip = _RecordingStrip("PD6", 3)
     pixels.fill((255, 0, 0))
+    assert list(pixels._buf) == [0, 255, 0] * 3
 
-    assert calls.count((255, 0, 0)) == 3, "fill should set all 3 pixels red"
-    assert "show" in calls, "fill should latch the strip"
+
+def test_setitem_tuple_writes_single_pixel_grb():
+    # pixels[i] = (r, g, b) writes one pixel into the framebuffer (GRB order).
+    pixels = neopixel.NeoPixel("PD6", 4)
+    pixels[2] = (10, 20, 30)  # R=10, G=20, B=30 -> buf[6:9] = [G, R, B]
+    assert list(pixels._buf[6:9]) == [20, 10, 30]
+    # Untouched pixels stay zero.
+    assert list(pixels._buf[0:6]) == [0, 0, 0, 0, 0, 0]
 
 
 def test_auto_write_default_true():
@@ -40,10 +35,3 @@ def test_colour_order_constants():
     assert neopixel.GRB == "GRB"
     assert neopixel.RGBW == "RGBW"
     assert neopixel.GRBW == "GRBW"
-
-
-def test_setitem_is_noop_stub():
-    # __setitem__ is a documented @warning stub (needs an instance framebuffer);
-    # in CPython it is simply a no-op passthrough and must not raise.
-    pixels = neopixel.NeoPixel("PD6", 4)
-    pixels[0] = (0, 255, 0)

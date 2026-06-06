@@ -129,6 +129,7 @@ def _install_hal_mocks() -> None:
     class _MockNeoPixel:
         def __init__(self, pin, n): pass
         def set_pixel(self, r, g, b): pass
+        def write_byte(self, val): pass
         def show(self): pass
 
     drivers = ModuleType("pymcu.drivers")
