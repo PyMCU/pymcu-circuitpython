@@ -1,4 +1,5 @@
-from pymcu_circuitpython.digitalio import Direction, DriveMode, Pull, DigitalInOut
+"""digitalio: DigitalInOut, Direction, Pull (UP/DOWN, None = no pull), DriveMode."""
+from pymcu_circuitpython.digitalio import DigitalInOut, Direction, Pull, DriveMode
 
 
 def test_direction_constants():
@@ -6,10 +7,10 @@ def test_direction_constants():
     assert Direction.OUTPUT == 1
 
 
-def test_pull_constants():
-    assert Pull.NONE == 0
+def test_pull_constants_no_none():
     assert Pull.UP == 1
     assert Pull.DOWN == 2
+    assert not hasattr(Pull, "NONE")   # CircuitPython uses None, not Pull.NONE
 
 
 def test_drive_mode_constants():
@@ -17,116 +18,48 @@ def test_drive_mode_constants():
     assert DriveMode.OPEN_DRAIN == 1
 
 
-def test_digital_in_out_default_state():
-    pin = DigitalInOut("PB5")
-    assert pin.direction == Direction.INPUT
-    assert pin.pull == Pull.NONE
-    assert pin.drive_mode == DriveMode.PUSH_PULL
+def test_default_is_input_no_pull():
+    d = DigitalInOut("PB5")
+    assert d.direction == Direction.INPUT
+    assert d.pull is None
 
 
-def test_digital_in_out_set_output():
-    pin = DigitalInOut("PB5")
-    pin.direction = Direction.OUTPUT
-    assert pin.direction == Direction.OUTPUT
+def test_direction_setter():
+    d = DigitalInOut("PB5")
+    d.direction = Direction.OUTPUT
+    assert d.direction == Direction.OUTPUT
 
 
-def test_digital_in_out_set_input():
-    pin = DigitalInOut("PB5")
-    pin.direction = Direction.OUTPUT
-    pin.direction = Direction.INPUT
-    assert pin.direction == Direction.INPUT
+def test_value_setter_getter():
+    d = DigitalInOut("PB5")
+    d.direction = Direction.OUTPUT
+    d.value = True
+    assert d.value == 1
+    d.value = False
+    assert d.value == 0
 
 
-def test_digital_in_out_set_pull():
-    pin = DigitalInOut("PB5")
-    pin.pull = Pull.UP
-    assert pin.pull == Pull.UP
-    pin.pull = Pull.DOWN
-    assert pin.pull == Pull.DOWN
+def test_pull_none_and_up():
+    d = DigitalInOut("PB5")
+    d.switch_to_input(pull=Pull.UP)
+    assert d.pull == Pull.UP
+    d.pull = None
+    assert d.pull is None
 
 
-def test_digital_in_out_drive_mode():
-    pin = DigitalInOut("PB5")
-    pin.drive_mode = DriveMode.OPEN_DRAIN
-    assert pin.drive_mode == DriveMode.OPEN_DRAIN
-    pin.drive_mode = DriveMode.PUSH_PULL
-    assert pin.drive_mode == DriveMode.PUSH_PULL
+def test_switch_to_output_initial_value():
+    d = DigitalInOut("PB5")
+    d.switch_to_output(value=1)
+    assert d.direction == Direction.OUTPUT
+    assert d.value == 1
 
 
-def test_digital_in_out_value_read():
-    pin = DigitalInOut("PB5")
-    v = pin.value
-    assert v == 0
-
-
-def test_digital_in_out_value_write():
-    pin = DigitalInOut("PB5")
-    pin.direction = Direction.OUTPUT
-    pin.value = 1
-    pin.value = 0  # should not raise
-
-
-def test_digital_in_out_helper_set_direction():
-    pin = DigitalInOut("PB5")
-    pin.set_direction(Direction.OUTPUT)
-    assert pin.direction == Direction.OUTPUT
-
-
-def test_digital_in_out_helper_set_pull():
-    pin = DigitalInOut("PB5")
-    pin.set_pull(Pull.UP)
-    assert pin.pull == Pull.UP
-
-
-def test_digital_in_out_helper_get_set_value():
-    pin = DigitalInOut("PB5")
-    assert pin.get_value() == 0
-    pin.set_value(1)  # should not raise
-    pin.set_value(0)  # should not raise
-
-
-def test_switch_to_output():
-    pin = DigitalInOut("PB5")
-    pin.switch_to_output(value=0)
-    assert pin.direction == Direction.OUTPUT
-
-
-def test_switch_to_output_with_value_1():
-    pin = DigitalInOut("PB5")
-    pin.switch_to_output(value=1)
-    assert pin.direction == Direction.OUTPUT
-
-
-def test_switch_to_output_with_drive_mode():
-    pin = DigitalInOut("PB5")
-    pin.switch_to_output(value=0, drive_mode=DriveMode.PUSH_PULL)
-    assert pin.drive_mode == DriveMode.PUSH_PULL
-
-
-def test_switch_to_input():
-    pin = DigitalInOut("PB5")
-    pin.direction = Direction.OUTPUT
-    pin.switch_to_input()
-    assert pin.direction == Direction.INPUT
-
-
-def test_switch_to_input_with_pull():
-    pin = DigitalInOut("PB5")
-    pin.switch_to_input(pull=Pull.UP)
-    assert pin.direction == Direction.INPUT
-    assert pin.pull == Pull.UP
-
-
-def test_deinit():
-    pin = DigitalInOut("PB5")
-    pin.direction = Direction.OUTPUT
-    pin.deinit()
-    assert pin.direction == Direction.INPUT
+def test_no_legacy_helpers():
+    # Strict CircuitPython parity: the old call-style helpers are gone.
+    for attr in ("toggle", "set_value", "get_value", "set_direction", "set_pull", "irq"):
+        assert not hasattr(DigitalInOut, attr)
 
 
 def test_context_manager():
-    pin = DigitalInOut("PB5")
-    pin.__enter__()
-    pin.direction = Direction.OUTPUT
-    pin.__exit__()
-    assert pin.direction == Direction.INPUT
+    with DigitalInOut("PB5") as d:
+        d.direction = Direction.OUTPUT

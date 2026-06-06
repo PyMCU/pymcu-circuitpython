@@ -1,51 +1,33 @@
-import pytest
-
+"""analogio: AnalogIn (16-bit value, float reference_voltage)."""
+from unittest.mock import patch
+import pymcu.hal.adc as _adc
 from pymcu_circuitpython.analogio import AnalogIn, AnalogOut
 
 
-def test_analog_in_instantiation():
-    adc = AnalogIn("PC0")
-    assert adc is not None
+def test_value_scaled_to_16bit():
+    a = AnalogIn("PC0")
+    with patch.object(_adc._MockAnalogPin if hasattr(_adc, "_MockAnalogPin") else a._adc.__class__,
+                      "read", return_value=1023):
+        # value = raw10 << 6
+        assert a.value == 1023 << 6
 
 
-def test_analog_in_value_is_zero_from_mock():
-    adc = AnalogIn("PC0")
-    # Mock AnalogPin.read() returns 0 → scaled 0 << 6 == 0
-    assert adc.value == 0
+def test_reference_voltage_is_float():
+    a = AnalogIn("PC0")
+    assert a.reference_voltage == 5.0
+    assert isinstance(a.reference_voltage, float)
 
 
-def test_analog_in_read_u16():
-    adc = AnalogIn("PC0")
-    v = adc.read_u16()
-    assert v == 0
-
-
-def test_analog_in_value_is_in_range():
-    # Even with a non-zero mock, the 16-bit scale must stay within uint16 bounds
-    adc = AnalogIn("PC0")
-    v = adc.value
-    assert 0 <= v <= 65535
-
-
-def test_analog_out_raises_not_implemented():
-    with pytest.raises((NotImplementedError, Exception)):
-        AnalogOut("PC0")
-
-
-def test_reference_voltage():
-    adc = AnalogIn("PC0")
-    v = adc.reference_voltage
-    assert v == 5
-
-
-def test_deinit():
-    adc = AnalogIn("PC0")
-    adc.deinit()  # must not raise
+def test_no_read_u16():
+    assert not hasattr(AnalogIn, "read_u16")   # MicroPython-ism removed
 
 
 def test_context_manager():
-    adc = AnalogIn("PC0")
-    adc.__enter__()
-    v = adc.value
-    adc.__exit__()
-    assert v == 0
+    with AnalogIn("PC0") as a:
+        _ = a.value
+
+
+def test_analogout_exists():
+    # On hardware @compile_message makes AnalogOut a build error; in CPython the
+    # decorator is a passthrough, so the constructor is merely a no-op.
+    AnalogOut("PC0")

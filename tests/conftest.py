@@ -52,9 +52,8 @@ def _install_hal_mocks() -> None:
         def __init__(self, baudrate=9600): pass
         def write(self, data):   pass
         def read(self):          return 0
-        def write_str(self, s):  pass
-        def println(self, s):    pass
-        def print_byte(self, v): pass
+        def read_nb(self):       return 0
+        def available(self):     return 0
 
     class _MockAnalogPin:
         def __init__(self, pin): pass
@@ -68,7 +67,7 @@ def _install_hal_mocks() -> None:
         def set_duty(self, d):    pass
 
     class _MockSPI:
-        def __init__(self, cs=""): pass
+        def __init__(self, mode=0, cs=""): pass
         def transfer(self, data): return 0
         def write(self, data):    pass
         def select(self):         pass
@@ -79,6 +78,7 @@ def _install_hal_mocks() -> None:
         def ping(self, addr):        return 0
         def write_to(self, addr, d): return 0
         def read_from(self, addr):   return 0
+        def read_ack(self):          return 0
         def read_nack(self):         return 0
         def start(self):             pass
         def stop(self):              pass
