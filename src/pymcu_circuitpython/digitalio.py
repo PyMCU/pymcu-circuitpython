@@ -1,7 +1,7 @@
 # CircuitPython-compatible digitalio module for PyMCU
 #
-# Provides DigitalInOut, Direction, and Pull as ZCA (zero-cost) classes that
-# mirror the CircuitPython digitalio API.
+# Provides DigitalInOut, Direction, Pull and DriveMode as ZCA (zero-cost)
+# classes that mirror the CircuitPython digitalio API exactly.
 #
 # Usage (CircuitPython style):
 #   from digitalio import DigitalInOut, Direction, Pull
@@ -9,16 +9,23 @@
 #
 #   led = DigitalInOut(board.LED)
 #   led.direction = Direction.OUTPUT   # property setter
-#   led.value = 1                      # property setter
+#   led.value = True                   # property setter
+#
+#   btn = DigitalInOut(board.D2)
+#   btn.switch_to_input(pull=Pull.UP)
+#   if btn.value:
+#       ...
 #
 # ZCA contract:
-#   - Direction.OUTPUT / Direction.INPUT are compile-time integer constants.
+#   - Direction.OUTPUT / Direction.INPUT and Pull.UP / Pull.DOWN are compile-time
+#     integer constants; "no pull" is the Python value None (folds to -1).
 #   - Assigning to .direction / .value expands the property setter inline,
-#     enabling dead-code elimination in any method that matches on self.direction.
-#   - set_direction() / set_value() / get_value() are kept as explicit helpers
-#     for code that prefers the call style.
+#     enabling dead-code elimination in any method that matches on it.
+#
+# Note: pin-change interrupts are a PyMCU feature, not part of CircuitPython's
+#       digitalio API. Use pymcu.hal.gpio.Pin(...).irq(...) directly for them.
 
-from pymcu.types import uint8, inline, Callable
+from pymcu.types import uint8, inline
 from pymcu.hal.gpio import Pin as _Pin
 
 
@@ -28,7 +35,7 @@ class Direction:
 
 
 class Pull:
-    NONE = 0
+    # CircuitPython's Pull has only UP and DOWN; "no pull" is None (not a member).
     UP   = 1
     DOWN = 2
 
@@ -41,12 +48,12 @@ class DriveMode:
 
 class DigitalInOut:
     @inline
-    def __init__(self, pin_name):
-        self._pin        = _Pin(pin_name, _Pin.IN)
-        # Store backing field directly — avoids triggering the setter which
+    def __init__(self, pin):
+        self._pin        = _Pin(pin, _Pin.IN)
+        # Store backing fields directly -- avoids triggering the setters which
         # would call _pin.mode(IN) redundantly (_Pin.__init__ already sets IN).
         self._direction  = Direction.INPUT
-        self._pull_mode  = Pull.NONE
+        self._pull_mode  = None
         self._drive_mode = DriveMode.PUSH_PULL
 
     # ------------------------------------------------------------------
@@ -87,13 +94,22 @@ class DigitalInOut:
     # ------------------------------------------------------------------
 
     @property
-    def pull(self) -> uint8:
+    def pull(self):
         return self._pull_mode
 
     @pull.setter
-    def pull(self, p: uint8):
+    def pull(self, p):
         self._pull_mode = p
-        self._pin.pull(p)
+        match p:
+            case Pull.UP:
+                self._pin.pull(1)
+            case Pull.DOWN:
+                # AVR has no internal pull-down; the HAL raises a CompileError
+                # so the deviation is reported at build time rather than ignored.
+                self._pin.pull(2)
+            case _:
+                # None / no pull.
+                self._pin.pull(0)
 
     # ------------------------------------------------------------------
     # drive_mode property
@@ -108,8 +124,6 @@ class DigitalInOut:
         self._drive_mode = mode
         match mode:
             case DriveMode.OPEN_DRAIN:
-                # Open-drain: set pin to INPUT when high, OUTPUT+LOW when low
-                # This requires application logic; for now we just store the mode
                 self._pin.mode(_Pin.OPEN_DRAIN)
             case DriveMode.PUSH_PULL:
                 self._pin.mode(_Pin.OUT)
@@ -131,12 +145,11 @@ class DigitalInOut:
                 self._pin.high()
 
     @inline
-    def switch_to_input(self, pull: uint8 = Pull.NONE):
-        """Configure pin as input with optional pull resistor."""
+    def switch_to_input(self, pull=None):
+        """Configure pin as input with optional pull resistor (Pull.UP or None)."""
         self._direction = Direction.INPUT
-        self._pull_mode = pull
         self._pin.mode(_Pin.IN)
-        self._pin.pull(pull)
+        self.pull = pull
 
     # ------------------------------------------------------------------
     # deinit / context manager (CircuitPython API)
@@ -146,54 +159,14 @@ class DigitalInOut:
     def deinit(self):
         """Release the pin resource (sets pin back to input, no pull)."""
         self._pin.mode(_Pin.IN)
-        self._pull_mode  = Pull.NONE
+        self._pull_mode  = None
         self._drive_mode = DriveMode.PUSH_PULL
         self._direction  = Direction.INPUT
 
     @inline
     def __enter__(self):
-        pass
+        return self
 
     @inline
-    def __exit__(self):
+    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
         self.deinit()
-
-    # ------------------------------------------------------------------
-    # Explicit call-style helpers (kept for backwards compatibility)
-    # ------------------------------------------------------------------
-
-    @inline
-    def set_direction(self, d: uint8):
-        self.direction = d
-
-    @inline
-    def set_pull(self, p: uint8):
-        self.pull = p
-
-    @inline
-    def get_value(self) -> uint8:
-        return self._pin.value()
-
-    @inline
-    def set_value(self, val: uint8):
-        match val:
-            case 0:
-                self._pin.low()
-            case _:
-                self._pin.high()
-
-    @inline
-    def toggle(self):
-        self._pin.toggle()
-
-    # ------------------------------------------------------------------
-    # irq -- PyMCU extension (not standard CircuitPython digitalio API)
-    # ------------------------------------------------------------------
-
-    @inline
-    def irq(self, handler: Callable = 0, trigger: uint8 = 1):
-        # Registers handler at the correct AVR ISR vector via compile_isr().
-        # trigger: 1 = falling edge, 2 = rising edge (matches machine.Pin constants).
-        # PyMCU deviation: handler takes no arguments; use a global variable to
-        # communicate state between the ISR and the main loop.
-        self._pin.irq(trigger, handler)
