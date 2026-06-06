@@ -110,3 +110,16 @@ def sleep_until_alarms(alarm_obj) -> uint8:
 def light_sleep_until_alarms(alarm_obj) -> uint8:
     """Light-sleep variant -- identical to sleep_until_alarms() on AVR."""
     return sleep_until_alarms(alarm_obj)
+
+
+@inline
+@warning("alarm.exit_and_deep_sleep_until_alarms() has no true deep sleep on AVR; it blocks until the alarm like light sleep (RAM is retained, the program continues instead of restarting).")
+def exit_and_deep_sleep_until_alarms(alarm_obj) -> uint8:
+    """Deep-sleep entry point (CircuitPython alarm.exit_and_deep_sleep_until_alarms).
+
+    CircuitPython powers the chip down and restarts from scratch when the alarm
+    fires. AVR has no equivalent low-power-with-reset path here, so this blocks
+    until the alarm exactly like light_sleep_until_alarms() and then returns to
+    the caller. The triggered alarm is still recorded in alarm.wake_alarm.
+    """
+    return sleep_until_alarms(alarm_obj)
