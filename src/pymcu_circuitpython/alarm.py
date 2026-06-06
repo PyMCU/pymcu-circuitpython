@@ -1,48 +1,48 @@
 # CircuitPython-compatible alarm module for PyMCU
 #
-# Provides PinAlarm and TimeAlarm classes, and sleep_until_alarms().
+# Provides alarm.time.TimeAlarm, alarm.pin.PinAlarm and the
+# sleep_until_alarms()/light_sleep_until_alarms() entry points.
 #
 # Usage (CircuitPython style):
-#   import alarm
-#   import board
+#   import alarm, time, board
 #
-#   # Sleep for 500 ms then wake:
-#   time_alarm = alarm.time.TimeAlarm(monotonic_time=500)
-#   alarm.sleep_until_alarms(time_alarm)
+#   # Wake 60 seconds from now (monotonic_time is an ABSOLUTE timestamp):
+#   ta = alarm.time.TimeAlarm(monotonic_time=time.monotonic() + 60)
+#   alarm.sleep_until_alarms(ta)
 #
-#   # Sleep until a pin goes high:
-#   pin_alarm = alarm.pin.PinAlarm(board.D2, value=True)
-#   alarm.sleep_until_alarms(pin_alarm)
+#   # Wake when D2 goes high:
+#   pa = alarm.pin.PinAlarm(board.D2, value=True)
+#   alarm.sleep_until_alarms(pa)
 #
 # Implementation notes:
-#   - TimeAlarm uses delay_ms() -- it blocks but is power-optimal in the
-#     absence of a tickless RTOS. Use power.sleep_idle() for true low-power sleep.
-#   - PinAlarm polls the pin in a tight loop. For true interrupt-driven wake,
-#     use pymcu.hal.gpio Pin with an interrupt handler directly.
-#   - light_sleep_until_alarms() is an alias for sleep_until_alarms() on AVR
-#     (no architectural distinction between light and deep sleep here).
+#   - TimeAlarm.monotonic_time matches CircuitPython exactly: it is an absolute
+#     time.monotonic() value, NOT a duration. sleep_until_alarms() sleeps for
+#     (monotonic_time - time.monotonic()) seconds. This uses the soft-float
+#     runtime (see @softfloat) because time.monotonic() returns float seconds.
+#   - There is no true low-power deep sleep on AVR here: TimeAlarm blocks in a
+#     delay and PinAlarm polls the pin. light_sleep_until_alarms() is an alias.
+#   - The triggered alarm is recorded in alarm.wake_alarm.
 
-from pymcu.types import uint8, uint16, inline
+from pymcu.types import uint8, uint16, inline, softfloat
 from pymcu.time import delay_ms
 from pymcu.hal.gpio import Pin as _Pin
+
+
+wake_alarm = None
 
 
 # -- alarm.time submodule -----------------------------------------------------
 
 class _TimeAlarmModule:
-    """Namespace for alarm.time.TimeAlarm -- mirrors CircuitPython's alarm.time."""
+    """Namespace for alarm.time.TimeAlarm (mirrors CircuitPython's alarm.time)."""
 
     class TimeAlarm:
-        """Wake after a specified number of milliseconds.
-
-        Parameters:
-            monotonic_time -- milliseconds to sleep (mapped from CP's float seconds
-                              to integer ms for MCU compatibility)
-        """
+        """Wake at an absolute time.monotonic() timestamp (in seconds)."""
 
         @inline
-        def __init__(self, monotonic_time: uint16 = 0):
-            self._ms = monotonic_time
+        def __init__(self, monotonic_time: float = 0.0):
+            self._time = monotonic_time
+            self._is_time = 1
 
 
 time = _TimeAlarmModule()
@@ -51,23 +51,23 @@ time = _TimeAlarmModule()
 # -- alarm.pin submodule ------------------------------------------------------
 
 class _PinAlarmModule:
-    """Namespace for alarm.pin.PinAlarm -- mirrors CircuitPython's alarm.pin."""
+    """Namespace for alarm.pin.PinAlarm (mirrors CircuitPython's alarm.pin)."""
 
     class PinAlarm:
-        """Wake when a pin reaches a specified logic level.
+        """Wake when a pin reaches a logic level.
 
         Parameters:
             pin   -- board pin constant (e.g. board.D2) or raw pin string
-            value -- 1 to wake on HIGH, 0 to wake on LOW
-            edge  -- accepted for API compatibility (not implemented)
-            pull  -- accepted for API compatibility (not implemented)
+            value -- True to wake on HIGH, False to wake on LOW
+            edge  -- accepted for API compatibility; AVR uses level polling here
+            pull  -- accepted for API compatibility (configure pulls via digitalio)
         """
 
         @inline
-        def __init__(self, pin, value: uint8 = 1,
-                     edge: uint8 = 0, pull: uint8 = 0):
+        def __init__(self, pin, value: uint8 = 1, edge: uint8 = 0, pull: uint8 = 0):
             self._pin_name = pin
             self._value    = value
+            self._is_time  = 0
 
 
 pin = _PinAlarmModule()
@@ -76,37 +76,37 @@ pin = _PinAlarmModule()
 # -- Top-level sleep functions ------------------------------------------------
 
 @inline
+@softfloat
 def sleep_until_alarms(alarm_obj) -> uint8:
     """Block until the given alarm fires.
 
-    Accepts a TimeAlarm or PinAlarm. Returns 0 (alarm type id not inspectable
-    at runtime on bare metal).
+    TimeAlarm: sleeps until alarm_obj's absolute monotonic_time is reached.
+    PinAlarm:  polls the pin until it matches the requested level.
 
-    For TimeAlarm: calls delay_ms(alarm_obj._ms).
-    For PinAlarm:  polls the pin until its value matches alarm_obj._value.
+    The concrete alarm type is known at compile time (ZCA), so the unused
+    branch is eliminated -- only the relevant path is emitted.
     """
-    # TimeAlarm path: sleep for _ms milliseconds
-    match alarm_obj._ms:
-        case 0:
-            # Not a TimeAlarm (ms=0); fall through to pin poll
-            pass
-        case _:
-            delay_ms(alarm_obj._ms)
-            return 0
+    if alarm_obj._is_time:
+        from pymcu.hal.timer import millis as _millis
+        # monotonic_time is absolute seconds; convert the remaining time to ms.
+        now_s: float = _millis() / 1000.0
+        remaining_s: float = alarm_obj._time - now_s
+        if remaining_s > 0.0:
+            delay_ms(uint16(remaining_s * 1000.0))
+        return 0
 
-    # PinAlarm path: poll pin
     _p = _Pin(alarm_obj._pin_name, _Pin.IN)
     while True:
-        match alarm_obj._value:
-            case 1:
-                if _p.value():
-                    return 0
-            case _:
-                if _p.value() == 0:
-                    return 0
+        if alarm_obj._value:
+            if _p.value():
+                return 0
+        else:
+            if _p.value() == 0:
+                return 0
 
 
 @inline
+@softfloat
 def light_sleep_until_alarms(alarm_obj) -> uint8:
     """Light-sleep variant -- identical to sleep_until_alarms() on AVR."""
     return sleep_until_alarms(alarm_obj)
