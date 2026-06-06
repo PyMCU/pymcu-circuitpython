@@ -10,7 +10,7 @@
 #   v    = microcontroller.cpu.voltage       # Vcc in volts (soft-float)
 #   microcontroller.reset()                  # reset the MCU (watchdog)
 
-from pymcu.types import uint8, uint16, uint32, inline, const, softfloat
+from pymcu.types import uint8, uint16, uint32, inline, const, warning
 from pymcu.chips import device_info
 from pymcu.hal.adc import AnalogPin as _AnalogPin
 
@@ -25,7 +25,7 @@ class Processor:
         return info.frequency
 
     @property
-    @softfloat
+    @warning("microcontroller.cpu.temperature uses the software floating-point runtime and the uncalibrated on-chip sensor (approximate, +/-10 C).")
     def temperature(self) -> float:
         """Die temperature in degrees Celsius, read from the internal sensor.
 
@@ -42,7 +42,7 @@ class Processor:
         return (raw - 324.31) / 1.22
 
     @property
-    @softfloat
+    @warning("microcontroller.cpu.voltage uses the software floating-point runtime (bandgap-vs-AVcc measurement).")
     def voltage(self) -> float:
         """Supply voltage (Vcc) in volts.
 

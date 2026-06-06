@@ -36,7 +36,7 @@
 # I2C PC5/PC4, SPI PB5/PB3/PB4); the pin arguments are accepted for API
 # compatibility and validated by the underlying HAL.
 
-from pymcu.types import uint8, uint16, uint32, inline, compile_message
+from pymcu.types import uint8, uint16, uint32, inline, warning
 from pymcu.hal.uart import UART as _UART
 from pymcu.hal.i2c import I2C as _I2C
 from pymcu.hal.spi import SPI as _SPI
@@ -106,11 +106,11 @@ class UART:
             n = n + 1
         return n
 
-    @compile_message("busio.UART.read() returns a bytes object, which requires a heap not available on bare metal. Use readinto(buf) with a pre-allocated bytearray instead.")
+    @warning("busio.UART.read() cannot return a bytes object on bare metal (no heap); it is a no-op. Use readinto(buf) with a pre-allocated bytearray instead.")
     def read(self, nbytes=None):
         pass
 
-    @compile_message("busio.UART.readline() returns a bytes object, which requires a heap not available on bare metal. Use readinto(buf) instead.")
+    @warning("busio.UART.readline() cannot return a bytes object on bare metal (no heap); it is a no-op. Use readinto(buf) instead.")
     def readline(self):
         pass
 
@@ -165,7 +165,7 @@ class I2C:
         """Return 1 if a device acknowledges at `address`, else 0."""
         return self._bus.ping(address)
 
-    @compile_message("busio.I2C.scan() returns a list, which requires a heap not available on bare metal. Use probe(address) in a loop over the address range instead.")
+    @warning("busio.I2C.scan() cannot return a list on bare metal (no heap); it is a no-op. Use probe(address) in a loop over the address range instead.")
     def scan(self):
         pass
 

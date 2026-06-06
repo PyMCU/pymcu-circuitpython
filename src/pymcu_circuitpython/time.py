@@ -7,7 +7,7 @@
 #   time.sleep(0.5)              # 500 ms (float seconds; folded at compile time)
 #   t = time.monotonic()         # seconds since boot (float)
 
-from pymcu.types import uint16, uint32, inline, softfloat
+from pymcu.types import uint16, uint32, inline, warning
 
 
 @inline
@@ -22,7 +22,7 @@ def sleep(seconds: float):
 
 
 @inline
-@softfloat
+@warning("time.monotonic() uses the software floating-point runtime (no hardware FPU on AVR).")
 def monotonic() -> float:
     """Seconds since power-on as a float (matches CircuitPython).
 

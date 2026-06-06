@@ -18,7 +18,7 @@ GRB  = "GRB"
 RGBW = "RGBW"
 GRBW = "GRBW"
 
-from pymcu.types import uint8, uint32, inline, asm, compile_message
+from pymcu.types import uint8, uint32, inline, asm, warning
 from pymcu.drivers.neopixel import NeoPixel as _NeoPixel
 
 
@@ -91,7 +91,7 @@ class NeoPixel:
         self._strip.show()
         asm("SEI")
 
-    @compile_message("neopixel individual pixel assignment (pixels[i] = color) needs a per-strip SRAM framebuffer, which requires instance-member arrays not yet supported by the compiler. Use fill(color) to set the whole strip.")
+    @warning("neopixel individual pixel assignment (pixels[i] = color) needs a per-strip SRAM framebuffer; it is a no-op here. Use fill(color) to set the whole strip.")
     def __setitem__(self, index, color):
         pass
 

@@ -18,12 +18,12 @@
 #   - TimeAlarm.monotonic_time matches CircuitPython exactly: it is an absolute
 #     time.monotonic() value, NOT a duration. sleep_until_alarms() sleeps for
 #     (monotonic_time - time.monotonic()) seconds. This uses the soft-float
-#     runtime (see @softfloat) because time.monotonic() returns float seconds.
+#     runtime (see @warning) because time.monotonic() returns float seconds.
 #   - There is no true low-power deep sleep on AVR here: TimeAlarm blocks in a
 #     delay and PinAlarm polls the pin. light_sleep_until_alarms() is an alias.
 #   - The triggered alarm is recorded in alarm.wake_alarm.
 
-from pymcu.types import uint8, uint16, inline, softfloat
+from pymcu.types import uint8, uint16, inline, warning
 from pymcu.time import delay_ms
 from pymcu.hal.gpio import Pin as _Pin
 
@@ -76,7 +76,7 @@ pin = _PinAlarmModule()
 # -- Top-level sleep functions ------------------------------------------------
 
 @inline
-@softfloat
+@warning("alarm.sleep_until_alarms() uses the software floating-point runtime for TimeAlarm timing.")
 def sleep_until_alarms(alarm_obj) -> uint8:
     """Block until the given alarm fires.
 
@@ -106,7 +106,7 @@ def sleep_until_alarms(alarm_obj) -> uint8:
 
 
 @inline
-@softfloat
+@warning("alarm.light_sleep_until_alarms() uses the software floating-point runtime for TimeAlarm timing.")
 def light_sleep_until_alarms(alarm_obj) -> uint8:
     """Light-sleep variant -- identical to sleep_until_alarms() on AVR."""
     return sleep_until_alarms(alarm_obj)

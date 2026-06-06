@@ -28,6 +28,6 @@ def test_context_manager():
 
 
 def test_analogout_exists():
-    # On hardware @compile_message makes AnalogOut a build error; in CPython the
-    # decorator is a passthrough, so the constructor is merely a no-op.
+    # On hardware @warning makes AnalogOut emit a build-time note (no DAC); in
+    # CPython the decorator is a passthrough, so the constructor is a no-op.
     AnalogOut("PC0")

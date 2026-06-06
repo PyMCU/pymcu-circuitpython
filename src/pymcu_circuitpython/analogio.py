@@ -14,7 +14,7 @@
 # Note: CircuitPython's AnalogIn.value is 16-bit (0-65535). The AVR ADC is
 #       10-bit (0-1023), so we scale by 64x to match CircuitPython behaviour.
 
-from pymcu.types import uint16, inline, compile_message
+from pymcu.types import uint16, inline, warning
 from pymcu.hal.adc import AnalogPin as _AnalogPin
 
 
@@ -55,7 +55,7 @@ class AnalogIn:
 class AnalogOut:
     """Analog (DAC) output -- not available on AVR (no DAC peripheral)."""
 
-    @compile_message("analogio.AnalogOut requires a hardware DAC, which AVR targets do not have. Use pwmio.PWMOut for an analog-like output.")
+    @warning("analogio.AnalogOut requires a hardware DAC, which AVR targets do not have; this is a no-op. Use pwmio.PWMOut for an analog-like output.")
     @inline
     def __init__(self, pin):
         pass
