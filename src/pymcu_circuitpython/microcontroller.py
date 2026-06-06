@@ -96,3 +96,40 @@ def delay_us(delay: uint32):
 class Pin:
     """Microcontroller pin reference (used by board pin definitions)."""
     pass
+
+
+# ---------------------------------------------------------------------------
+# microcontroller.nvm -- byte-addressable non-volatile memory (EEPROM-backed)
+# ---------------------------------------------------------------------------
+
+class _NVM:
+    """Persistent byte storage (CircuitPython microcontroller.nvm).
+
+    Backed by the on-chip EEPROM: nvm[i] reads a byte, nvm[i] = v writes one,
+    and len(nvm) is the EEPROM size in bytes. Writes survive resets and power
+    cycles. Every accessor expands inline to the EEPROM HAL (zero overhead).
+
+    Deviations from CircuitPython:
+      - Slice access (nvm[a:b]) needs a heap-allocated bytearray and is not
+        available on bare metal; index one byte at a time in a loop instead.
+      - len(nvm) reports the ATmega328P EEPROM size (1024 B). Other AVR parts
+        differ; a chip-aware size constant in pymcu.chips is a planned addition.
+    """
+
+    @inline
+    def __len__(self) -> uint16:
+        return 1024
+
+    @inline
+    def __getitem__(self, index: uint16) -> uint8:
+        from pymcu.hal.eeprom import EEPROM as _EEPROM
+        return _EEPROM().read(index)
+
+    @inline
+    def __setitem__(self, index: uint16, value: uint8):
+        from pymcu.hal.eeprom import EEPROM as _EEPROM
+        _EEPROM().write(index, value)
+
+
+# CircuitPython exposes persistent storage as microcontroller.nvm.
+nvm = _NVM()

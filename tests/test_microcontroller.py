@@ -28,6 +28,24 @@ def test_delay_us_callable():
     microcontroller.delay_us(100)
 
 
+def test_nvm_len_is_eeprom_size():
+    assert len(microcontroller.nvm) == 1024
+
+
+def test_nvm_read_write_roundtrip():
+    microcontroller.nvm[10] = 0x42
+    assert microcontroller.nvm[10] == 0x42
+    # A distinct address is independent.
+    microcontroller.nvm[11] = 0x99
+    assert microcontroller.nvm[10] == 0x42
+    assert microcontroller.nvm[11] == 0x99
+
+
+def test_nvm_masks_to_byte():
+    microcontroller.nvm[5] = 0x1FF      # value masked to 8 bits in the store
+    assert microcontroller.nvm[5] == 0xFF
+
+
 def test_reset_uses_watchdog():
     # reset() arms the watchdog then spins; patch the loop guard away by making
     # Watchdog.enable raise so we don't loop forever.

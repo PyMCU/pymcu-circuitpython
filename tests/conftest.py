@@ -73,6 +73,14 @@ def _install_hal_mocks() -> None:
         def select(self):         pass
         def deselect(self):       pass
 
+    class _MockEEPROM:
+        # Class-level store so reads see prior writes even though the nvm
+        # accessors construct a fresh EEPROM() on every call (zero-cost inline).
+        _store: dict = {}
+        def __init__(self):              pass
+        def write(self, addr, value):    _MockEEPROM._store[addr] = value & 0xFF
+        def read(self, addr):            return _MockEEPROM._store.get(addr, 0)
+
     class _MockI2C:
         def __init__(self):          pass
         def ping(self, addr):        return 0
@@ -105,6 +113,7 @@ def _install_hal_mocks() -> None:
     _reg("spi",      SPI=_MockSPI)
     _reg("i2c",      I2C=_MockI2C)
     _reg("watchdog", Watchdog=MagicMock)
+    _reg("eeprom",   EEPROM=_MockEEPROM)
     _reg("timer",    millis=lambda: 0, millis_init=lambda: None)
 
     # --- pymcu.time (time.py / utime.py import delay_ms, delay_us) ------ #
