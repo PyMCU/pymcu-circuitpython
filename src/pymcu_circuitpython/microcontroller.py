@@ -1,67 +1,98 @@
 # CircuitPython-compatible microcontroller module for PyMCU
 #
-# Provides access to microcontroller-specific information and features.
+# Mirrors CircuitPython's microcontroller module: microcontroller.cpu (a
+# Processor instance), microcontroller.reset() and microcontroller.delay_us().
 #
 # Usage:
 #   import microcontroller
-#   microcontroller.cpu.frequency  # CPU frequency in Hz
-#   microcontroller.cpu.reset()    # Reset the MCU (not yet supported)
-#
-# Note: Most CircuitPython microcontroller features require runtime introspection
-#       which is not available on bare-metal MCUs. This module provides compile-time
-#       constants where possible.
+#   hz   = microcontroller.cpu.frequency     # CPU frequency in Hz (compile-time)
+#   degc = microcontroller.cpu.temperature   # die temperature in C (soft-float)
+#   v    = microcontroller.cpu.voltage       # Vcc in volts (soft-float)
+#   microcontroller.reset()                  # reset the MCU (watchdog)
 
-from pymcu.types import uint8, uint32, inline, const
+from pymcu.types import uint8, uint16, uint32, inline, const, softfloat
 from pymcu.chips import device_info
+from pymcu.hal.adc import AnalogPin as _AnalogPin
 
 
-class CPU:
-    """Microcontroller CPU information."""
+class Processor:
+    """Microcontroller CPU information (CircuitPython microcontroller.Processor)."""
 
     @property
     def frequency(self) -> const[uint32]:
-        """CPU frequency in Hz (compile-time constant)."""
+        """CPU frequency in Hz (compile-time constant on AVR)."""
         info = device_info()
         return info.frequency
 
     @property
-    def temperature(self) -> uint8:
-        """CPU temperature in Celsius (not supported on most AVR chips)."""
-        raise NotImplementedError("CPU temperature sensor not available on this chip")
+    @softfloat
+    def temperature(self) -> float:
+        """Die temperature in degrees Celsius, read from the internal sensor.
+
+        Uses the on-chip temperature sensor (ADC channel 8, 1.1V reference) and
+        the datasheet transfer function. The reading is uncalibrated and only
+        approximate (typical accuracy +/-10 C without per-chip calibration).
+        Requires a chip with an internal temperature sensor (ATmega328P family).
+        """
+        adc = _AnalogPin("TEMP")
+        adc.start()
+        raw: uint16 = adc.read()
+        # Datasheet (ATmega328P, table 28-1): ~1 LSB/C, offset ~324.31 at 0 C,
+        # slope ~1.22 LSB/C. T = (raw - 324.31) / 1.22  (soft-float).
+        return (raw - 324.31) / 1.22
+
+    @property
+    @softfloat
+    def voltage(self) -> float:
+        """Supply voltage (Vcc) in volts.
+
+        Measures the internal 1.1V bandgap reference against AVcc and back-
+        computes Vcc = 1.1 * 1024 / ADCraw (soft-float). Requires a chip that
+        exposes the bandgap channel (ATmega328P family).
+        """
+        adc = _AnalogPin("VBG")
+        adc.start()
+        raw: uint16 = adc.read()
+        return 1.1 * 1024.0 / raw
 
     @property
     def uid(self):
-        """Unique ID tuple. AVR has no factory UID; returns 8-byte tuple of zeros."""
+        """Unique chip identifier.
+
+        CircuitPython returns a bytearray. The ATmega328P has no reliable
+        factory-programmed unique serial number, so this returns an 8-tuple of
+        zeros. Treat as unavailable on this target.
+        """
         return (0, 0, 0, 0, 0, 0, 0, 0)
 
-    @property
-    def voltage(self) -> uint8:
-        """Supply voltage in volts (approximate). Returns 5 for standard 5V AVR boards."""
-        return 5
 
-    @inline
-    def reset(self):
-        """Reset the microcontroller. Not implemented via CPU object; use microcontroller.reset()."""
-        raise NotImplementedError("Use microcontroller.reset() for MCU reset")
-
-
-# Singleton instance
-cpu = CPU()
+# CircuitPython exposes the processor as `microcontroller.cpu`.
+cpu = Processor()
 
 
 @inline
 def reset():
-    """Module-level reset: triggers MCU reset via watchdog (mirrors CircuitPython)."""
-    cpu.reset()
+    """Reset the microcontroller immediately.
+
+    Implemented via the watchdog timer with the shortest timeout (~16 ms): the
+    watchdog is armed in reset mode and the CPU spins until it fires, which
+    restarts execution from the reset vector -- the bare-metal equivalent of
+    CircuitPython's microcontroller.reset().
+    """
+    from pymcu.hal.watchdog import Watchdog as _Watchdog
+    wd = _Watchdog(16)
+    wd.enable()
+    while True:
+        pass
 
 
 @inline
 def delay_us(delay: uint32):
-    """Busy-wait for the given number of microseconds."""
+    """Busy-wait for the given number of microseconds (CircuitPython parity)."""
     from pymcu.time import delay_us as _delay_us
     _delay_us(delay)
 
 
 class Pin:
-    """Microcontroller pin reference (for board definitions)."""
+    """Microcontroller pin reference (used by board pin definitions)."""
     pass
