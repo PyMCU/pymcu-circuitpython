@@ -28,6 +28,20 @@ def test_delay_us_callable():
     microcontroller.delay_us(100)
 
 
+def test_reset_reason_constants_are_distinct():
+    from pymcu_circuitpython.microcontroller import ResetReason
+    vals = [ResetReason.POWER_ON, ResetReason.BROWNOUT, ResetReason.SOFTWARE,
+            ResetReason.DEEP_SLEEP_ALARM, ResetReason.RESET_PIN,
+            ResetReason.WATCHDOG, ResetReason.UNKNOWN, ResetReason.RESCUE_DEBUG]
+    assert len(set(vals)) == len(vals)
+
+
+def test_reset_reason_is_a_property_descriptor():
+    # The accessor reads MCUSR via ptr, which raises under CPython simulation;
+    # accessing through the class returns the descriptor without invoking it.
+    assert isinstance(type(cpu).reset_reason, property)
+
+
 def test_nvm_len_is_eeprom_size():
     assert len(microcontroller.nvm) == 1024
 

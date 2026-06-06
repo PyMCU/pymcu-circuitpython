@@ -15,6 +15,25 @@ from pymcu.chips import device_info
 from pymcu.hal.adc import AnalogPin as _AnalogPin
 
 
+class ResetReason:
+    """Reason codes for the most recent reset (CircuitPython microcontroller.ResetReason).
+
+    POWER_ON, BROWNOUT, RESET_PIN and WATCHDOG are produced on AVR from the
+    MCUSR flag register. SOFTWARE, DEEP_SLEEP_ALARM and RESCUE_DEBUG are defined
+    for API compatibility but never returned on this target (AVR software resets
+    go through the watchdog and report WATCHDOG; there is no deep-sleep alarm or
+    debug-rescue path here).
+    """
+    POWER_ON         = 0
+    BROWNOUT         = 1
+    SOFTWARE         = 2
+    DEEP_SLEEP_ALARM = 3
+    RESET_PIN        = 4
+    WATCHDOG         = 5
+    UNKNOWN          = 6
+    RESCUE_DEBUG     = 7
+
+
 class Processor:
     """Microcontroller CPU information (CircuitPython microcontroller.Processor)."""
 
@@ -64,6 +83,28 @@ class Processor:
         zeros. Treat as unavailable on this target.
         """
         return (0, 0, 0, 0, 0, 0, 0, 0)
+
+    @property
+    @warning("microcontroller.cpu.reset_reason reads MCUSR live; PyMCU does not snapshot/clear it at boot, so flags can accumulate across resets (best-effort). Clear MCUSR early in your program for a single-event reading.")
+    def reset_reason(self) -> uint8:
+        """Reason for the most recent reset, as a ResetReason value.
+
+        Reads the AVR MCUSR flag register (DATA 0x54 / I/O 0x34) directly.
+        Specific events are checked before POWER_ON because, without a boot-time
+        clear, the power-on flag lingers across later resets; checking WATCHDOG/
+        BROWNOUT/RESET_PIN first yields the more useful answer in that case.
+        """
+        from pymcu.types import ptr
+        MCUSR: ptr[uint8] = ptr(0x54)
+        if MCUSR[3]:        # WDRF  -- watchdog system reset
+            return ResetReason.WATCHDOG
+        if MCUSR[2]:        # BORF  -- brown-out reset
+            return ResetReason.BROWNOUT
+        if MCUSR[1]:        # EXTRF -- external reset pin
+            return ResetReason.RESET_PIN
+        if MCUSR[0]:        # PORF  -- power-on reset
+            return ResetReason.POWER_ON
+        return ResetReason.UNKNOWN
 
 
 # CircuitPython exposes the processor as `microcontroller.cpu`.
