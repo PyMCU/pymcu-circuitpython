@@ -8,7 +8,7 @@
 #   import neopixel
 #
 #   pixels = neopixel.NeoPixel(board.D6, 8)
-#   pixels.fill(0xFF0000)        # all red (0xRRGGBB packed colour)
+#   pixels.fill((255, 0, 0))     # all red ((r, g, b) tuple, as in CircuitPython)
 #   # with auto_write (default True) the strip latches immediately;
 #   # otherwise call pixels.show()
 #
@@ -18,7 +18,7 @@ GRB  = "GRB"
 RGBW = "RGBW"
 GRBW = "GRBW"
 
-from pymcu.types import uint8, uint32, inline, asm, warning
+from pymcu.types import uint8, inline, asm, warning
 from pymcu.drivers.neopixel import NeoPixel as _NeoPixel
 
 
@@ -70,17 +70,22 @@ class NeoPixel:
         return 1.0
 
     @inline
-    def fill(self, color: uint32):
-        """Set every pixel to a single packed 0xRRGGBB colour.
+    def fill(self, color):
+        """Set every pixel to a single (r, g, b) colour.
 
-        With auto_write enabled (the default) the strip latches immediately.
-        Note: CircuitPython also accepts an (r, g, b) tuple here; on PyMCU pass
-        the packed integer form (e.g. 0xFF8000) -- tuple colour literals are not
-        yet supported as call arguments by the compiler.
+        Pass an (r, g, b) tuple, exactly as in CircuitPython:
+        pixels.fill((255, 0, 0)). The tuple is bound at compile time and its
+        channels are read by constant subscript, so there is zero overhead.
+
+        Note: CircuitPython's fill() also accepts a packed 0xRRGGBB integer.
+        That alternative form is not simultaneously dispatchable here because
+        an integer literal and a tuple literal are indistinguishable to the
+        @inline overload resolver (both infer to the same argument suffix), so
+        the canonical tuple form is the supported one.
         """
-        r: uint8 = (color >> 16) & 0xFF
-        g: uint8 = (color >> 8) & 0xFF
-        b: uint8 = color & 0xFF
+        r: uint8 = color[0]
+        g: uint8 = color[1]
+        b: uint8 = color[2]
         # WS2812 timing is cycle-exact: keep interrupts disabled for the whole
         # transmission (all pixels + the latch/reset pulse).
         asm("CLI")
