@@ -1,29 +1,17 @@
 # DHT11 Sensor -- CircuitPython style on Arduino Uno
 #
-# Demonstrates:
-#   board module  -- board.D2 for sensor data, board.LED for status
-#   busio module  -- UART serial output (board.TX / board.RX, 9600 baud)
-#   digitalio     -- LED OUTPUT, blinks on each successful read
-#   time module   -- sleep_ms() between measurements
-#   local driver  -- dht11.DHT11 reads temperature & humidity
+# Reads a DHT11 and reports over UART. Status text is sent as bytes literals;
+# the humidity/temperature values are sent as raw bytes (PyMCU has no runtime
+# integer-to-decimal formatting, so the host decodes the two value bytes).
 #
-# Wiring:
-#   DHT11 DATA -> D2 (with 4.7 kohm pull-up to +5 V)
-#   DHT11 VCC  -> +5 V
-#   DHT11 GND  -> GND
-#   LED:    built-in on D13 (no wiring needed)
-#   Serial: connect USB-to-serial adapter to TX (D1) at 9600 baud
-#
-# UART output format:
-#   Startup:  "DHT11 ready"
-#   OK read:  "H: XX  T: XX"   (humidity %, temperature C)
-#   Error:    "read error"
+# Wiring: DHT11 DATA -> D2 (4.7k pull-up to +5V); LED on D13; TX on D1 @ 9600.
 #
 import board
 import time
 import busio
 from digitalio import DigitalInOut, Direction
 from dht11 import DHT11
+from pymcu.types import uint8
 
 
 def main():
@@ -31,23 +19,26 @@ def main():
     led    = DigitalInOut(board.LED)
     sensor = DHT11(board.D2)
 
-    led.set_direction(Direction.OUTPUT)
+    led.direction = Direction.OUTPUT
+    uart.write(b"DHT11 ready\r\n")
 
-    uart.println("DHT11 ready")
-
+    val: uint8[1]
     while True:
         sensor.measure()
 
         if sensor.failed:
-            uart.println("read error")
-            led.set_value(0)
+            uart.write(b"read error\r\n")
+            led.value = False
         else:
-            uart.write_str("H: ")
-            uart.print_byte(sensor.humidity)
-            uart.write_str("T: ")
-            uart.print_byte(sensor.temperature)
-            led.set_value(1)
-            time.sleep_ms(100)
-            led.set_value(0)
+            uart.write(b"H:")
+            val[0] = sensor.humidity
+            uart.write(val)
+            uart.write(b" T:")
+            val[0] = sensor.temperature
+            uart.write(val)
+            uart.write(b"\r\n")
+            led.value = True
+            time.sleep(0.1)
+            led.value = False
 
-        time.sleep_ms(2000)
+        time.sleep(2.0)

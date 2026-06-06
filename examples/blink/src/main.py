@@ -2,14 +2,11 @@
 #
 # Demonstrates:
 #   board module  -- board.LED resolves to "PB5" at compile time
-#   digitalio     -- DigitalInOut ZCA class, Direction constant
+#   digitalio     -- DigitalInOut, Direction, value property
 #   time module   -- sleep() with float seconds (folded at compile time)
 #
-# Wiring:
-#   No external wiring needed -- uses the built-in LED on D13
-#
-# Expected behaviour:
-#   LED toggles at 1 Hz (500 ms per half-period) indefinitely
+# Wiring: none -- uses the built-in LED on D13.
+# Behaviour: LED blinks at 1 Hz (500 ms on, 500 ms off).
 #
 import board
 import digitalio
@@ -21,5 +18,7 @@ def main():
     led.direction = digitalio.Direction.OUTPUT
 
     while True:
-        led.toggle()
+        led.value = True
+        sleep(0.5)
+        led.value = False
         sleep(0.5)
