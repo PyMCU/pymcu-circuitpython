@@ -11,6 +11,9 @@
 # This file is for additional CircuitPython-specific boards that use AVR chips.
 
 BOARD_CHIPS: dict = {
+    # Raspberry Pi Pico (RP2040)
+    "raspberry_pi_pico": "rp2040",
+    "pico":              "rp2040",
     # ATtiny named dev boards (supplement to driver's built-in BOARD_CHIPS)
     "digispark":        "attiny85",
     "adafruit_trinket": "attiny85",

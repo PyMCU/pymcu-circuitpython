@@ -15,7 +15,9 @@
 #       10-bit (0-1023), so we scale by 64x to match CircuitPython behaviour.
 
 from pymcu.types import uint16, inline, warning
-from pymcu.hal.adc import AnalogPin as _AnalogPin
+from pymcu.chips import __CHIP__
+if __CHIP__.arch == "avr":
+    from pymcu.hal.adc import AnalogPin as _AnalogPin
 
 
 class AnalogIn:

@@ -10,9 +10,10 @@
 #   v    = microcontroller.cpu.voltage       # Vcc in volts (soft-float)
 #   microcontroller.reset()                  # reset the MCU (watchdog)
 
+from pymcu.chips import __CHIP__, device_info
 from pymcu.types import uint8, uint16, uint32, inline, const, warning
-from pymcu.chips import device_info
-from pymcu.hal.adc import AnalogPin as _AnalogPin
+if __CHIP__.arch == "avr":
+    from pymcu.hal.adc import AnalogPin as _AnalogPin
 
 
 class ResetReason:

@@ -36,10 +36,12 @@
 # I2C PC5/PC4, SPI PB5/PB3/PB4); the pin arguments are accepted for API
 # compatibility and validated by the underlying HAL.
 
+from pymcu.chips import __CHIP__
 from pymcu.types import uint8, uint16, uint32, inline, warning
 from pymcu.hal.uart import UART as _UART
-from pymcu.hal.i2c import I2C as _I2C
-from pymcu.hal.spi import SPI as _SPI
+if __CHIP__.arch == "avr":
+    from pymcu.hal.i2c import I2C as _I2C
+    from pymcu.hal.spi import SPI as _SPI
 
 
 class UART:
