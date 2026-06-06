@@ -39,7 +39,7 @@ frequency = 16000000
 | `time` | `sleep()`, `monotonic()`, `monotonic_ns()` | ✅ Complete | `sleep(0.5)` float seconds; `monotonic()` float (soft-float) |
 | `supervisor` | `ticks_ms/add/diff`, `reload`, `runtime` | ✅ Complete | 2²⁹ ms wrap and signed `ticks_diff`, matching CircuitPython |
 | `microcontroller` | `cpu.frequency/temperature/voltage/uid`, `reset()`, `delay_us()` | ✅ Complete | `reset()` via watchdog; `temperature`/`voltage` soft-float; `uid` unavailable on AVR |
-| `neopixel` | `NeoPixel` | ⚠️ Partial | Whole-strip `fill(0xRRGGBB)`; individual `pixels[i]=` needs a framebuffer (not supported) |
+| `neopixel` | `NeoPixel` | ⚠️ Partial | Whole-strip `fill((r, g, b))`; individual `pixels[i]=` needs a framebuffer (not supported) |
 | `alarm` | `TimeAlarm`, `PinAlarm`, `sleep_until_alarms` | ✅ Complete | `TimeAlarm` uses absolute `monotonic_time` (soft-float); `PinAlarm` polls |
 
 ### Feature Comparison
@@ -63,9 +63,11 @@ frequency = 16000000
 - `uart.read()/readline()` and `i2c.scan()` return heap objects (`bytes`/`list`);
   use `uart.readinto(buf)` and `i2c.probe(addr)` instead.
 - `analogio.AnalogOut` requires a DAC (absent on AVR).
-- `neopixel`: individual `pixels[i] = color` and `(r, g, b)` tuple colours need a
-  per-strip framebuffer / tuple-literal arguments not yet supported; use
-  `fill(0xRRGGBB)` for whole-strip colour.
+- `neopixel`: whole-strip `fill((r, g, b))` works (the canonical CircuitPython
+  idiom); individual `pixels[i] = color` needs a per-strip framebuffer
+  (instance-member arrays) not yet supported. The packed `fill(0xRRGGBB)` integer
+  form is not simultaneously dispatchable with the tuple form, so the tuple form
+  is the supported one.
 - Receive buffers are fixed-size `uint8[N]` arrays rather than `bytearray(N)`.
 
 ## Quick Start
