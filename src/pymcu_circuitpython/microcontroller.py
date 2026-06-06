@@ -174,3 +174,71 @@ class _NVM:
 
 # CircuitPython exposes persistent storage as microcontroller.nvm.
 nvm = _NVM()
+
+
+# ---------------------------------------------------------------------------
+# microcontroller.watchdog -- hardware watchdog timer
+# ---------------------------------------------------------------------------
+
+class WatchDogMode:
+    """Watchdog modes (CircuitPython watchdog.WatchDogMode).
+
+    Exposed here as microcontroller.WatchDogMode rather than in a separate
+    `watchdog` module. AVR supports system-reset only; RAISE (interrupt) is
+    defined for API compatibility but behaves as RESET on this target.
+    """
+    RESET = 0
+    RAISE = 1
+
+
+class _WatchDogTimer:
+    """Hardware watchdog (CircuitPython microcontroller.watchdog / WatchDogTimer).
+
+    Set .timeout (seconds), then assign .mode = WatchDogMode.RESET to arm the
+    watchdog; call .feed() before it expires, or .deinit() to disable it. The
+    timeout is a runtime value, armed via the const-free HAL path (arm_ms), so
+    it may come from a variable rather than a compile-time literal.
+
+    Deviations: only reset mode is available (RAISE behaves as RESET); to stop
+    the watchdog use deinit() (CircuitPython also accepts mode = None).
+    """
+
+    @inline
+    def __init__(self):
+        self._timeout_ms = 1000
+        self._mode = 0
+
+    @property
+    @warning("microcontroller.watchdog.timeout uses the software floating-point runtime (seconds <-> ms conversion).")
+    def timeout(self) -> float:
+        return self._timeout_ms / 1000.0
+
+    @timeout.setter
+    def timeout(self, seconds: float):
+        self._timeout_ms = uint16(seconds * 1000.0)
+
+    @property
+    def mode(self) -> uint8:
+        return self._mode
+
+    @mode.setter
+    def mode(self, m: uint8):
+        # CircuitPython arms the watchdog when mode is set. AVR only does reset
+        # mode, so any non-disabling mode arms with the current timeout.
+        self._mode = m
+        from pymcu.hal.watchdog import Watchdog
+        Watchdog().arm_ms(self._timeout_ms)
+
+    @inline
+    def feed(self):
+        from pymcu.hal.watchdog import Watchdog
+        Watchdog().feed()
+
+    @inline
+    def deinit(self):
+        from pymcu.hal.watchdog import Watchdog
+        Watchdog().disable()
+
+
+# CircuitPython exposes the watchdog as microcontroller.watchdog.
+watchdog = _WatchDogTimer()

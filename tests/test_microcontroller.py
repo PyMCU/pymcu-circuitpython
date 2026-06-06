@@ -60,6 +60,38 @@ def test_nvm_masks_to_byte():
     assert microcontroller.nvm[5] == 0xFF
 
 
+def test_watchdog_timeout_roundtrip():
+    microcontroller.watchdog.timeout = 8
+    assert microcontroller.watchdog.timeout == 8.0
+    assert isinstance(microcontroller.watchdog.timeout, float)
+
+
+def test_watchdog_mode_arms_via_hal():
+    from pymcu_circuitpython.microcontroller import WatchDogMode
+    import pymcu.hal.watchdog as _wd
+    from unittest.mock import MagicMock
+
+    fake = MagicMock()
+    with patch.object(_wd, "Watchdog", MagicMock(return_value=fake)):
+        microcontroller.watchdog.timeout = 2
+        microcontroller.watchdog.mode = WatchDogMode.RESET
+        # Setting mode arms the watchdog with the runtime timeout in ms.
+        fake.arm_ms.assert_called_once_with(2000)
+    assert microcontroller.watchdog.mode == WatchDogMode.RESET
+
+
+def test_watchdog_feed_and_deinit_call_hal():
+    import pymcu.hal.watchdog as _wd
+    from unittest.mock import MagicMock
+
+    fake = MagicMock()
+    with patch.object(_wd, "Watchdog", MagicMock(return_value=fake)):
+        microcontroller.watchdog.feed()
+        microcontroller.watchdog.deinit()
+        fake.feed.assert_called_once()
+        fake.disable.assert_called_once()
+
+
 def test_reset_uses_watchdog():
     # reset() arms the watchdog then spins; patch the loop guard away by making
     # Watchdog.enable raise so we don't loop forever.
