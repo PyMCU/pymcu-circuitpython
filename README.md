@@ -39,7 +39,7 @@ frequency = 16000000
 | `time` | `sleep()`, `monotonic()`, `monotonic_ns()` | ✅ Complete | `sleep(0.5)` float seconds; `monotonic()` float (soft-float) |
 | `supervisor` | `ticks_ms/add/diff`, `reload`, `runtime` | ✅ Complete | 2²⁹ ms wrap and signed `ticks_diff`, matching CircuitPython |
 | `microcontroller` | `cpu.frequency/temperature/voltage/uid`, `reset()`, `delay_us()` | ✅ Complete | `reset()` via watchdog; `temperature`/`voltage` soft-float; `uid` unavailable on AVR |
-| `neopixel` | `NeoPixel` | ✅ Yes | Framebuffer-backed: whole-strip `fill((r, g, b))` and addressable `pixels[i] = (r, g, b)` |
+| `neopixel` | `NeoPixel` | ✅ Yes | Ships in [pymcu-lib-neopixel](https://github.com/PyMCU/pymcu-lib-neopixel), pulled in as a dependency: `import neopixel` is unchanged |
 | `alarm` | `TimeAlarm`, `PinAlarm`, `sleep_until_alarms` | ✅ Complete | `TimeAlarm` uses absolute `monotonic_time` (soft-float); `PinAlarm` polls |
 
 ### Feature Comparison
@@ -63,7 +63,7 @@ frequency = 16000000
 - `uart.read()/readline()` and `i2c.scan()` return heap objects (`bytes`/`list`);
   use `uart.readinto(buf)` and `i2c.probe(addr)` instead.
 - `analogio.AnalogOut` requires a DAC (absent on AVR).
-- `neopixel`: whole-strip `fill((r, g, b))` and addressable
+- `neopixel` (from `pymcu-lib-neopixel`): whole-strip `fill((r, g, b))` and addressable
   `pixels[i] = (r, g, b)` both work, backed by a per-strip SRAM framebuffer
   (3 bytes/pixel). The packed `fill(0xRRGGBB)` integer form is not
   simultaneously dispatchable with the tuple form, so the tuple form is the

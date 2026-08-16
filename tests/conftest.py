@@ -134,19 +134,6 @@ def _install_hal_mocks() -> None:
     chips.device_info = lambda: _DeviceInfo()
     sys.modules["pymcu.chips"] = chips
 
-    # --- pymcu.drivers.neopixel (neopixel.py) --------------------------- #
-    class _MockNeoPixel:
-        def __init__(self, pin, n): pass
-        def set_pixel(self, r, g, b): pass
-        def write_byte(self, val): pass
-        def show(self): pass
-
-    drivers = ModuleType("pymcu.drivers")
-    sys.modules["pymcu.drivers"] = drivers
-    neo = ModuleType("pymcu.drivers.neopixel")
-    neo.NeoPixel = _MockNeoPixel
-    sys.modules["pymcu.drivers.neopixel"] = neo
-    drivers.neopixel = neo
 
 
 _install_hal_mocks()

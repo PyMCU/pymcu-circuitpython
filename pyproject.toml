@@ -4,14 +4,17 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pymcu-circuitpython"
-version = "0.1.0a1"
+version = "0.1.0a2"
 description = "CircuitPython-compatible stdlib layer for PyMCU (digitalio, analogio, busio, pwmio, neopixel, alarm, supervisor, time, microcontroller, board)"
 requires-python = ">=3.11"
 # The compat modules import pymcu.types / pymcu.hal (e.g. `warning`, `uint8`)
 # at import time, so pymcu-stdlib is a hard runtime dependency. The compiler
 # driver and backend are supplied by the project template (`pymcu new` ->
 # pymcu-compiler[avr]); this layer stays backend-agnostic.
-dependencies = ["pymcu-stdlib>=0.1.0a1"]
+# neopixel now lives in its own library: the module is still imported as
+# `neopixel`, it just no longer ships here. Declared as a dependency so
+# existing projects keep working after an upgrade without changing a line.
+dependencies = ["pymcu-stdlib>=0.1.0a1", "pymcu-lib-neopixel>=0.1.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pymcu_circuitpython"]
