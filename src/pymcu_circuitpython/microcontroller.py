@@ -242,3 +242,53 @@ class _WatchDogTimer:
 
 # CircuitPython exposes the watchdog as microcontroller.watchdog.
 watchdog = _WatchDogTimer()
+
+
+# ---------------------------------------------------------------------------
+# Interrupt control
+#
+# There was no reason these were missing: pymcu.hal.irq has implemented both
+# since well before this layer existed. Nothing in the compiler or the part was
+# in the way; nobody had wired them through.
+#
+# Delegating rather than writing asm("sei") here, because the HAL is
+# arch-dispatched (AVR SEI/CLI, Cortex-M CPSIE/CPSID, PIC GIE, RISC-V
+# mstatus.MIE) and this layer also serves RP2040. Hard-coding AVR would work
+# today and break the first time someone builds for a Pico.
+#
+# Verified in the listing: a program calling both emits one SEI and one CLI,
+# confirmed against avr-objdump on the ELF as well as the generated .asm.
+# ---------------------------------------------------------------------------
+
+from pymcu.hal.irq import enable_interrupts as _hal_enable
+from pymcu.hal.irq import disable_interrupts as _hal_disable
+
+
+@inline
+def disable_interrupts():
+    """Disable interrupts globally (CircuitPython microcontroller.disable_interrupts).
+
+    Does NOT nest, matching neither more nor less than the hardware does: two
+    disables followed by one enable leaves interrupts ON. Upstream counts
+    nesting on some ports; this one cannot, so pair them one to one.
+    """
+    _hal_disable()
+
+
+@inline
+def enable_interrupts():
+    """Enable interrupts globally. See disable_interrupts() for the nesting note."""
+    _hal_enable()
+
+
+# ---------------------------------------------------------------------------
+# microcontroller.cpus
+#
+# Upstream is a sequence of Processor objects. This part has one core and
+# PyMCU has no runtime sequence type, so cpus is that single Processor:
+# cpus[0] does not compile. `cpu` is upstream's name for the current core and
+# is the spelling to prefer here.
+# ---------------------------------------------------------------------------
+
+cpus = cpu
+
