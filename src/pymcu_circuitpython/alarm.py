@@ -94,15 +94,22 @@ def sleep_until_alarms(alarm_obj) -> uint8:
         if remaining_s > 0.0:
             delay_ms(uint16(remaining_s * 1000.0))
         return 0
-
-    _p = _Pin(alarm_obj._pin_name, _Pin.IN)
-    while True:
-        if alarm_obj._value:
-            if _p.value():
-                return 0
-        else:
-            if _p.value() == 0:
-                return 0
+    else:
+        # Written as an `else` rather than a tail after the `return` above, and that
+        # is load-bearing rather than a style choice. When the guard folds at compile
+        # time the IR generator skips an untaken ELSE arm, but it still lowers a tail
+        # statement that follows a returning `if`. For a TimeAlarm the tail reads
+        # _pin_name, which a TimeAlarm does not have, and lowering it produced
+        # "Parameter 'name' is declared as const ... varies at runtime" -- a message
+        # about a parameter the caller never wrote. Same semantics, one arm lowered.
+        _p = _Pin(alarm_obj._pin_name, _Pin.IN)
+        while True:
+            if alarm_obj._value:
+                if _p.value():
+                    return 0
+            else:
+                if _p.value() == 0:
+                    return 0
 
 
 @inline
