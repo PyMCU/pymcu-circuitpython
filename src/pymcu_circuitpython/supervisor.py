@@ -1,20 +1,23 @@
 # CircuitPython-compatible supervisor module for PyMCU
 #
 # Mirrors CircuitPython's supervisor timing helpers exactly, including the
-# 2**29 ms wrap of ticks_ms() and the signed, wrap-aware ticks_diff().
+# 2**29 ms wrap of ticks_ms().
 #
 # Usage:
 #   import supervisor
 #   start = supervisor.ticks_ms()
 #   # ... later ...
-#   elapsed = supervisor.ticks_diff(supervisor.ticks_ms(), start)  # signed ms
+#   elapsed = (supervisor.ticks_ms() - start) & 0x1FFFFFFF  # ms since start
 #   supervisor.reload()             # software reset via watchdog
 
 from pymcu.types import uint32, int32, inline
 
 
 # CircuitPython ticks are kept modulo 2**29 so the arithmetic stays correct on
-# boards without long integers.  ticks_diff() returns a *signed* value assuming
+# boards without long integers.  Upstream does not ship ticks_add()/ticks_diff():
+# its docs show them as example code for the caller to write, and the spellings
+# are MicroPython's.  They were removed here for that reason.  The subtraction
+# above is the same arithmetic, assuming
 # the two readings are within 2**28 ms of each other.  These constants and the
 # helper bodies match the canonical CircuitPython reference implementation.
 _TICKS_PERIOD     = 1 << 29
@@ -27,31 +30,12 @@ def ticks_ms() -> uint32:
     """Milliseconds since power-on, wrapping at 2**29 (matches CircuitPython).
 
     On AVR: uses the Timer0 millis() counter, masked to 29 bits so the value
-    and all ticks_add()/ticks_diff() arithmetic behave exactly as documented
+    behaves exactly as documented
     for CircuitPython.  Requires millis_init() at startup; the PyMCU build
     driver injects it automatically when ticks_ms() is detected.
     """
     from pymcu.hal.timer import millis as _millis
     return _millis() & _TICKS_MAX
-
-
-@inline
-def ticks_add(ticks: uint32, delta: uint32) -> uint32:
-    """Add delta to a ticks value, wrapping modulo 2**29 (CircuitPython parity)."""
-    return (ticks + delta) % _TICKS_PERIOD
-
-
-@inline
-def ticks_diff(ticks1: uint32, ticks2: uint32) -> int32:
-    """Signed elapsed milliseconds between two ticks_ms() readings.
-
-    Returns ticks1 - ticks2 as a signed value in the range [-2**28, 2**28),
-    correctly handling the 2**29 wrap.  Identical semantics to CircuitPython's
-    supervisor.ticks_diff().
-    """
-    diff: int32 = (ticks1 - ticks2) & _TICKS_MAX
-    diff = ((diff + _TICKS_HALFPERIOD) & _TICKS_MAX) - _TICKS_HALFPERIOD
-    return diff
 
 
 @inline

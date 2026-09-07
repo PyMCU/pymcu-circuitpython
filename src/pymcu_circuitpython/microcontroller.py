@@ -180,15 +180,6 @@ nvm = _NVM()
 # microcontroller.watchdog -- hardware watchdog timer
 # ---------------------------------------------------------------------------
 
-class WatchDogMode:
-    """Watchdog modes (CircuitPython watchdog.WatchDogMode).
-
-    Exposed here as microcontroller.WatchDogMode rather than in a separate
-    `watchdog` module. AVR supports system-reset only; RAISE (interrupt) is
-    defined for API compatibility but behaves as RESET on this target.
-    """
-    RESET = 0
-    RAISE = 1
 
 
 class _WatchDogTimer:
@@ -291,4 +282,8 @@ def enable_interrupts():
 # ---------------------------------------------------------------------------
 
 cpus = cpu
-
+# WatchDogMode lives in the `watchdog` module upstream, not here. Re-exported
+# for the code that already imports it from microcontroller; prefer
+# `from watchdog import WatchDogMode`, which is what a CircuitPython program
+# on a board will be using.
+from watchdog import WatchDogMode
