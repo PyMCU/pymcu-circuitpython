@@ -10,7 +10,7 @@
 #   v    = microcontroller.cpu.voltage       # Vcc in volts (soft-float)
 #   microcontroller.reset()                  # reset the MCU (watchdog)
 
-from pymcu.chips import __CHIP__, device_info
+from pymcu.chips import __CHIP__
 from pymcu.types import uint8, uint16, uint32, inline, const, warning
 if __CHIP__.arch == "avr":
     from pymcu.hal.adc import AnalogPin as _AnalogPin
@@ -40,9 +40,8 @@ class Processor:
 
     @property
     def frequency(self) -> const[uint32]:
-        """CPU frequency in Hz (compile-time constant on AVR)."""
-        info = device_info()
-        return info.frequency
+        """CPU frequency in Hz (compile-time constant, as in CircuitPython)."""
+        return __FREQ__
 
     @property
     @warning("microcontroller.cpu.temperature uses the software floating-point runtime and the uncalibrated on-chip sensor (approximate, +/-10 C).")
