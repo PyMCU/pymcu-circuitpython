@@ -224,6 +224,35 @@ def _install_hal_mocks() -> None:
         def carrier_off(self): pass
         def deinit(self):      pass
 
+    class _MockSoftI2C:
+        # In step with pymcu.hal.softi2c.SoftI2C: an open-drain bus that logs what it
+        # clocked out, so a test can read the transfer the way a logic analyser would.
+        def __init__(self, scl, sda, half_us=5):
+            self.scl, self.sda, self.half_us = scl, sda, half_us
+            self.log: list = []
+
+        def init(self):              self.log.append("idle")
+        def start(self):             self.log.append("S")
+        def stop(self):              self.log.append("P")
+        def write(self, data):       self.log.append(data); return 0
+        def read(self, send_ack):    self.log.append("R" + ("A" if send_ack else "N")); return 0
+        def ping(self, addr):        return 1
+
+    class _MockSoftSPI:
+        # In step with pymcu.hal.softspi.SoftSPI: mode 0 only, and a half-period in whole
+        # microseconds that set_baudrate recomputes.
+        def __init__(self, sck, mosi, miso, mode=0, cs=None, baudrate=500):
+            self.sck, self.mosi, self.miso = sck, mosi, miso
+            self.set_baudrate(baudrate)
+            self.mosi_log: list = []
+
+        def set_baudrate(self, baudrate):
+            self.half_us = 500 // baudrate
+
+        def transfer(self, data):
+            self.mosi_log.append(data)
+            return 0
+
     class _MockI2C:
         # In step with pymcu.hal.i2c.I2C: the SCL rate reaches the constructor, and
         # frequency() reports what the integer bit-rate register can actually clock.
@@ -269,6 +298,8 @@ def _install_hal_mocks() -> None:
     _reg("adc",      AnalogPin=_MockAnalogPin)
     _reg("dac",      DACPin=_MockDACPin)
     _reg("pulse",    PulseCapture=_MockPulseCapture, PulseTrain=_MockPulseTrain)
+    _reg("softi2c",  SoftI2C=_MockSoftI2C)
+    _reg("softspi",  SoftSPI=_MockSoftSPI)
     _reg("pwm",      PWM=_MockPWM)
     _reg("spi",      SPI=_MockSPI)
     _reg("i2c",      I2C=_MockI2C)
