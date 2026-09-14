@@ -26,6 +26,11 @@ def _install_hal_mocks() -> None:
         PULL_UP = 1
 
         def __init__(self, name, mode=1):
+            # `name` and not `_name`: the real pymcu.hal.gpio.Pin stores it under the
+            # public name, and neopixel_write reads it back off the DigitalInOut to hand
+            # the pin to the WS2812 emitter. A mock that spelt it differently made that
+            # path untestable under CPython while looking correct.
+            self.name = name
             self._name = name
             self._mode = mode
             self._v = 0
@@ -380,6 +385,16 @@ def _install_hal_mocks() -> None:
     _reg("spi",      SPI=_MockSPI)
     _reg("i2c",      I2C=_MockI2C)
     _reg("watchdog", Watchdog=MagicMock)
+    # pymcu.hal.ws2812: the one-wire pixel emitter. The mock records what reached the
+    # wire and in which order, which is the only thing about it a layer test can check --
+    # the bit times are cycles, and those are measured in the emulator, not here
+    # (pymcu-avr fixtures/compat-cp-neopixel-write).
+    _ws2812_log: list = []
+    _reg("ws2812",
+         ws2812_init=lambda pin: _ws2812_log.append(("init", pin)),
+         ws2812_write_byte=lambda pin, val: _ws2812_log.append(("byte", pin, val)),
+         ws2812_reset=lambda pin: _ws2812_log.append(("reset", pin)),
+         log=_ws2812_log)
     _reg("eeprom",   EEPROM=_MockEEPROM)
     # millis() ADVANCES. A clock that always reads zero is not a clock: alarm's polling
     # loop waits on it, so a constant made the loop run for ever. One millisecond a call is
