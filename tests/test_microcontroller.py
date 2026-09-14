@@ -9,8 +9,29 @@ def test_frequency():
     assert cpu.frequency == 16_000_000
 
 
-def test_uid_is_zero_tuple():
-    assert cpu.uid == (0, 0, 0, 0, 0, 0, 0, 0)
+def test_uid_is_refused_rather_than_eight_zeros():
+    # It returned a tuple of eight zeros, which reads as a real identifier that happens to
+    # be zero: two boards would have compared equal.
+    import pytest
+    from pymcu.exceptions import CompileError
+    with pytest.raises(CompileError) as e:
+        _ = microcontroller.cpu.uid
+    assert "nvm" in str(e.value)
+
+
+def test_cpus_has_a_length():
+    # It was bound to the Processor itself, so len(cpus) did not work either.
+    assert len(microcontroller.cpus) == 1
+
+
+def test_indexing_cpus_says_to_use_cpu():
+    # A processor handed back from an index loses its type on the way out, so cpus[0]
+    # would compile and cpus[0].frequency would not.
+    import pytest
+    from pymcu.exceptions import CompileError
+    with pytest.raises(CompileError) as e:
+        _ = microcontroller.cpus[0]
+    assert "microcontroller.cpu" in str(e.value)
 
 
 def test_temperature_is_float():

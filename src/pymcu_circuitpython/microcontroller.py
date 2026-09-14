@@ -77,13 +77,25 @@ class Processor:
 
     @property
     def uid(self):
-        """Unique chip identifier.
+        """Not available: this part has no unique serial this HAL will vouch for.
 
-        CircuitPython returns a bytearray. The ATmega328P has no reliable
-        factory-programmed unique serial number, so this returns an 8-tuple of
-        zeros. Treat as unavailable on this target.
+        It used to return a tuple of eight zeros, which reads as a real identifier that
+        happens to be zero -- two boards would have compared equal and a program keying
+        anything on it would have keyed on nothing.
+
+        The ATmega parts do carry a signature row with numbers that differ between dies, but
+        Atmel documents neither its layout nor its uniqueness, and reading it needs the
+        boot-loader instruction path. An identifier a program can rely on is one the program
+        writes: put a random value in microcontroller.nvm the first time a board boots and
+        read it back after that.
         """
-        return (0, 0, 0, 0, 0, 0, 0, 0)
+        raise CompileError(
+            "this part has no unique serial number this HAL will vouch for. The ATmega "
+            "signature row holds numbers that differ between dies, but their layout and "
+            "their uniqueness are undocumented, so reading them would be a guess presented "
+            "as an identity. Write your own: store a random value in microcontroller.nvm "
+            "the first time a board boots and read it back after that. It used to return "
+            "eight zeros, which two boards would have agreed on.")
 
     @property
     @warning("microcontroller.cpu.reset_reason reads MCUSR live; PyMCU does not snapshot/clear it at boot, so flags can accumulate across resets (best-effort). Clear MCUSR early in your program for a single-event reading.")
@@ -112,6 +124,34 @@ class Processor:
 cpu = Processor()
 
 
+class _Cpus:
+    """The processors this part has, as a sequence.
+
+    CircuitPython has `microcontroller.cpus`, a sequence of Processor. This part has one
+    core, so `len(cpus)` is 1.
+
+    Indexing it is refused. An object handed back from __getitem__ loses what it is on the
+    way out -- `cpus[0].frequency` comes back as "unknown member access: frequency" -- so
+    returning the Processor would compile into something a program cannot use. The refusal
+    names `microcontroller.cpu`, which is upstream's own name for the current core and is
+    the same object.
+    """
+
+    @inline
+    def __len__(self) -> uint8:
+        return 1
+
+    def __getitem__(self, index: uint8):
+        raise CompileError(
+            "microcontroller.cpus cannot be indexed here: a processor handed back from an "
+            "index loses its type on the way out, so cpus[0].frequency would not compile "
+            "even though cpus[0] did. Use microcontroller.cpu, which is upstream's name for "
+            "the current core and is the same object. len(cpus) works and is 1 on this part.")
+
+
+cpus = _Cpus()
+
+
 @inline
 def reset():
     """Reset the microcontroller immediately.
@@ -136,7 +176,14 @@ def delay_us(delay: uint32):
 
 
 class Pin:
-    """Microcontroller pin reference (used by board pin definitions)."""
+    """A pin, as CircuitPython's microcontroller.Pin.
+
+    Empty on purpose, and it stays empty. In CircuitPython `board.D2` IS one of these and
+    carries the port and bit; here a board pin is the name string the HAL's tables are keyed
+    on, which is what lets every pin decision fold at compile time. The class is here so that
+    code which only mentions the type -- an annotation, an isinstance that never runs --
+    still resolves.
+    """
     pass
 
 
@@ -306,13 +353,12 @@ def enable_interrupts():
 # ---------------------------------------------------------------------------
 # microcontroller.cpus
 #
-# Upstream is a sequence of Processor objects. This part has one core and
-# PyMCU has no runtime sequence type, so cpus is that single Processor:
-# cpus[0] does not compile. `cpu` is upstream's name for the current core and
-# is the spelling to prefer here.
+# Upstream is a sequence of Processor objects. This part has one core, and cpus is a
+# sequence of one so that cpus[0] and len(cpus) compile, which is how portable code reaches
+# the first core. `cpu` is upstream's name for the current core and is the shorter spelling.
 # ---------------------------------------------------------------------------
 
-cpus = cpu
+# cpus is _Cpus() above: a sequence of one, so that microcontroller.cpus[0] compiles.
 # WatchDogMode lives in the `watchdog` module upstream, not here. Re-exported
 # for the code that already imports it from microcontroller; prefer
 # `from watchdog import WatchDogMode`, which is what a CircuitPython program
