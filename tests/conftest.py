@@ -9,6 +9,8 @@ import sys
 from types import ModuleType
 from unittest.mock import MagicMock
 
+from pymcu.exceptions import CompileError
+
 
 def _install_hal_mocks() -> None:
     # Guard: only install once per process.
@@ -56,9 +58,21 @@ def _install_hal_mocks() -> None:
         def available(self):     return 0
 
     class _MockAnalogPin:
+        # In step with pymcu.hal.adc.AnalogPin: read() is the raw converter count,
+        # read_u16() the same reading scaled to the full 16-bit range (bit replication,
+        # not a shift), and the reference accessors are the chip's, not the layer's.
+        WIDTH = 10
+
         def __init__(self, pin): pass
         def start(self):         pass
         def read(self):          return 0
+
+        def read_u16(self):
+            raw = self.read()
+            return (raw << 6) | (raw >> 4)
+
+        def reference_millivolts(self): return 5000
+        def reference_volts(self):      return 5.0
 
     class _MockPWM:
         def __init__(self, pin, duty=0, freq=500, invert=0, duty_u16=0): pass
@@ -83,6 +97,19 @@ def _install_hal_mocks() -> None:
         def __init__(self):              pass
         def write(self, addr, value):    _MockEEPROM._store[addr] = value & 0xFF
         def read(self, addr):            return _MockEEPROM._store.get(addr, 0)
+
+    class _MockDACPin:
+        # In step with pymcu.hal.dac.DACPin: no AVR part has a converter, so constructing
+        # one is refused where it is written instead of compiling to nothing.
+        def __init__(self, pin=""):
+            raise CompileError(
+                "this chip has no digital-to-analog converter. No AVR part has one, so "
+                "there is nothing to drive a steady analog voltage with. Use pymcu.hal.pwm "
+                "(PWM(pin, duty_u16=...)) and an RC low-pass filter on the pin for an "
+                "analog-like output, or drive an external converter over SPI or I2C.")
+
+        def set_value_u16(self, value): pass
+        def deinit(self):               pass
 
     class _MockI2C:
         def __init__(self):          pass
@@ -119,6 +146,7 @@ def _install_hal_mocks() -> None:
     _reg("gpio",     Pin=_MockPin)
     _reg("uart",     UART=_MockUART)
     _reg("adc",      AnalogPin=_MockAnalogPin)
+    _reg("dac",      DACPin=_MockDACPin)
     _reg("pwm",      PWM=_MockPWM)
     _reg("spi",      SPI=_MockSPI)
     _reg("i2c",      I2C=_MockI2C)
