@@ -253,6 +253,29 @@ def _install_hal_mocks() -> None:
             self.mosi_log.append(data)
             return 0
 
+    class _MockEdgeCounter:
+        # In step with pymcu.hal.counter.EdgeCounter. Rising and falling are told apart only
+        # on the two pins with a dedicated interrupt; every other pin has a pin-change
+        # interrupt that fires on both and cannot say which, so asking it for one is refused.
+        SINGLE_EDGE_PINS = ("PD2", "PD3", 2, 3)
+
+        def __init__(self, pin, edge=2, pull=1):
+            if edge > 2:
+                raise CompileError("an edge is 0 (both), 1 (rising) or 2 (falling).")
+            if edge != 0 and pin not in self.SINGLE_EDGE_PINS:
+                raise CompileError(
+                    "this pin can only count BOTH edges. Rising and falling are told apart "
+                    "by INT0 and INT1, which are PD2 and PD3.")
+            self.pin, self.edge, self.pull = pin, edge, pull
+            self._count = 0
+
+        def tick(self, n=1):
+            """Test-only: what the pin would have done."""
+            self._count += n
+
+        def count(self):  return self._count
+        def reset(self):  self._count = 0
+
     class _MockI2C:
         # In step with pymcu.hal.i2c.I2C: the SCL rate reaches the constructor, and
         # frequency() reports what the integer bit-rate register can actually clock.
@@ -300,6 +323,7 @@ def _install_hal_mocks() -> None:
     _reg("pulse",    PulseCapture=_MockPulseCapture, PulseTrain=_MockPulseTrain)
     _reg("softi2c",  SoftI2C=_MockSoftI2C)
     _reg("softspi",  SoftSPI=_MockSoftSPI)
+    _reg("counter",  EdgeCounter=_MockEdgeCounter)
     _reg("pwm",      PWM=_MockPWM)
     _reg("spi",      SPI=_MockSPI)
     _reg("i2c",      I2C=_MockI2C)
