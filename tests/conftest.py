@@ -98,13 +98,31 @@ def _install_hal_mocks() -> None:
         def reference_volts(self):      return 5.0
 
     class _MockPWM:
-        def __init__(self, pin, duty=0, freq=500, invert=0, duty_u16=0): pass
+        # In step with pymcu.hal.pwm.PWM: frequency() reports what the pin emits, which is
+        # not the request. A Timer1 channel (PB1/PB2) asking for something that is not one of
+        # the eight-bit buckets reaches the mode whose period is a register and comes out
+        # exactly; every other pin lands on the nearest bucket.
+        BUCKETS = (62500, 7812, 976, 244, 61)
+
+        def __init__(self, pin, duty=0, freq=500, invert=0, duty_u16=0):
+            self._pin, self._freq = pin, freq
+            self.duty_u16 = duty_u16
+
         def start(self):          pass
         def stop(self):           pass
         def deinit(self):         pass
         def set_duty(self, d):    pass
-        def set_duty_u16(self, d): pass
+
+        def set_duty_u16(self, d): self.duty_u16 = d
+
         def set_freq(self, freq):  self._freq = freq
+
+        def frequency(self):
+            if self._freq == 0:
+                return 976
+            if self._pin in ("PB1", "PB2") and self._freq not in self.BUCKETS:
+                return self._freq
+            return min(self.BUCKETS, key=lambda b: abs(b - self._freq))
 
     class _MockSPI:
         # In step with pymcu.hal.spi.SPI: the clock rate and the mode reach the constructor
