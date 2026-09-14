@@ -251,3 +251,30 @@ def test_attiny13_pins():
 def test_attiny13a_pins():
     assert attiny13a.PB0  == "PB0"
     assert attiny13a.INT0 == "PB1"
+
+
+def test_the_avr_arduino_boards_offer_the_three_bus_constructors():
+    # `i2c = board.I2C()` is the first line of nearly every Adafruit sensor guide, and none
+    # of the three existed on any board (#7).
+    from pymcu_circuitpython.boards import arduino_uno, arduino_nano, arduino_micro, arduino_mega
+    for board in (arduino_uno, arduino_nano, arduino_micro, arduino_mega):
+        assert callable(board.I2C), board.__name__
+        assert callable(board.SPI), board.__name__
+        assert callable(board.UART), board.__name__
+
+
+def test_a_board_bus_is_built_from_that_board_s_own_pins():
+    from pymcu_circuitpython.boards import arduino_uno
+    i2c = arduino_uno.I2C()
+    assert i2c.frequency == 100000
+    spi = arduino_uno.SPI()
+    assert spi.frequency == 4_000_000
+    uart = arduino_uno.UART()
+    assert uart.baudrate == 9600
+
+
+def test_board_uart_leaves_the_receive_ring_off():
+    # An uncalled function that registers an ISR still plants it, so a buffered UART here
+    # cost every program that imports board the receive interrupt it never used.
+    from pymcu_circuitpython.boards import arduino_uno
+    assert arduino_uno.UART()._buffered == 0

@@ -51,11 +51,34 @@ def _install_hal_mocks() -> None:
         def irq(self, trigger=None, handler=None): pass
 
     class _MockUART:
-        def __init__(self, baudrate=9600): pass
+        # In step with pymcu.hal.uart.UART: the frame format reaches the constructor, the
+        # receive ring has a count and a capacity, and a read can time out.
+        def __init__(self, baudrate=9600, bits=8, parity=0, stop=1):
+            self.bits, self.parity, self.stop = bits, parity, stop
+            self._ring = []
+            self._buffered = False
+
         def write(self, data):   pass
         def read(self):          return 0
-        def read_nb(self):       return 0
-        def available(self):     return 0
+        def read_nb(self):       return self._ring.pop(0) if self._ring else 0
+        def available(self):     return 1 if self._ring else 0
+
+        def rx_count(self):       return len(self._ring)
+        def rx_buffer_size(self): return 64
+        def rx_read(self):        return self._ring.pop(0) if self._ring else 0
+
+        def start_buffered_rx(self, size=0):
+            if size > 64:
+                raise CompileError(
+                    "this UART's receive ring holds 64 bytes and cannot be sized per "
+                    "program: it is a fixed array in the HAL, allocated at compile time.")
+            self._buffered = True
+
+        def rx_read_timeout(self, ms):
+            return self._ring.pop(0) if self._ring else -1
+
+        def read_timeout(self, ms):
+            return self._ring.pop(0) if self._ring else -1
 
     class _MockAnalogPin:
         # In step with pymcu.hal.adc.AnalogPin: read() is the raw converter count,
@@ -84,7 +107,21 @@ def _install_hal_mocks() -> None:
         def set_freq(self, freq):  self._freq = freq
 
     class _MockSPI:
-        def __init__(self, mode=0, cs=""): pass
+        # In step with pymcu.hal.spi.SPI: the clock rate and the mode reach the constructor
+        # and configure(), and frequency() reports what the dividers can actually produce.
+        def __init__(self, mode=0, cs="", baudrate=4000000, polarity=0, phase=0,
+                     lsb_first=0):
+            self.configure(baudrate, polarity, phase, lsb_first)
+
+        def configure(self, baudrate=4000000, polarity=0, phase=0, lsb_first=0):
+            self.baudrate, self.polarity, self.phase = baudrate, polarity, phase
+
+        def frequency(self):
+            for div in (2, 4, 8, 16, 32, 64, 128):
+                if 16_000_000 // div <= self.baudrate:
+                    return 16_000_000 // div
+            return 16_000_000 // 128
+
         def transfer(self, data): return 0
         def write(self, data):    pass
         def select(self):         pass
@@ -112,7 +149,15 @@ def _install_hal_mocks() -> None:
         def deinit(self):               pass
 
     class _MockI2C:
-        def __init__(self):          pass
+        # In step with pymcu.hal.i2c.I2C: the SCL rate reaches the constructor, and
+        # frequency() reports what the integer bit-rate register can actually clock.
+        def __init__(self, addr=0, general_call=0, freq=100000):
+            self._freq = freq
+
+        def frequency(self):
+            twbr = (16_000_000 // self._freq - 16) // 2
+            return 16_000_000 // (16 + 2 * twbr)
+
         def ping(self, addr):        return 0
         def write_to(self, addr, d): return 0
         def read_from(self, addr):   return 0
