@@ -11,6 +11,7 @@
 #   microcontroller.reset()                  # reset the MCU (watchdog)
 
 from pymcu.chips import __CHIP__
+from pymcu.exceptions import CompileError
 from pymcu.types import uint8, uint16, uint32, inline, const, warning
 if __CHIP__.arch == "avr":
     from pymcu.hal.adc import AnalogPin as _AnalogPin
@@ -153,13 +154,19 @@ class _NVM:
     Deviations from CircuitPython:
       - Slice access (nvm[a:b]) needs a heap-allocated bytearray and is not
         available on bare metal; index one byte at a time in a loop instead.
-      - len(nvm) reports the ATmega328P EEPROM size (1024 B). Other AVR parts
-        differ; a chip-aware size constant in pymcu.chips is a planned addition.
+      - len(nvm) is the EEPROM this part actually has, which the HAL answers. It was
+        the ATmega328P's 1024 on every chip, so a program that trusted it wrote past the
+        end of an ATtiny85's 512 bytes and used a quarter of an ATmega2560's 4096.
     """
 
     @inline
     def __len__(self) -> uint16:
-        return 1024
+        return self._size()
+
+    @inline
+    def _size(self) -> uint16:
+        from pymcu.hal.eeprom import EEPROM as _EEPROM
+        return _EEPROM().size()
 
     @inline
     def __getitem__(self, index: uint16) -> uint8:
@@ -190,8 +197,10 @@ class _WatchDogTimer:
     timeout is a runtime value, armed via the const-free HAL path (arm_ms), so
     it may come from a variable rather than a compile-time literal.
 
-    Deviations: only reset mode is available (RAISE behaves as RESET); to stop
-    the watchdog use deinit() (CircuitPython also accepts mode = None).
+    `mode = None` disables the watchdog and `mode = WatchDogMode.RESET` arms it, as
+    upstream. RAISE is refused: this HAL does not program the interrupt mode, and arming a
+    reset for a program that asked to catch a timeout and recover is the opposite of what
+    it asked for.
     """
 
     @inline
@@ -213,12 +222,34 @@ class _WatchDogTimer:
         return self._mode
 
     @mode.setter
-    def mode(self, m: uint8):
-        # CircuitPython arms the watchdog when mode is set. AVR only does reset
-        # mode, so any non-disabling mode arms with the current timeout.
-        self._mode = m
+    def mode(self, m):
+        """Arm or disable the watchdog.
+
+        It armed for ANY value, including the None that upstream uses to disable it, and
+        `mode = None` did not compile at all: the setter took a uint8 and None is not one.
+        Now None disables, RESET arms, and RAISE is refused because this HAL does not
+        program the interrupt mode and a program that asked to catch a timeout would
+        instead have been rebooted.
+        """
         from pymcu.hal.watchdog import Watchdog
-        Watchdog().arm_ms(self._timeout_ms)
+        match m:
+            case None:
+                self._mode = 0
+                Watchdog().disable()
+            case WatchDogMode.RESET:
+                self._mode = 1
+                Watchdog().arm_ms(self._timeout_ms)
+            case WatchDogMode.RAISE:
+                raise CompileError(
+                    "the watchdog's RAISE mode fires an interrupt and lets the program carry "
+                    "on, and this HAL programs only the reset mode. Use "
+                    "watchdog.WatchDogMode.RESET, which restarts the part, or feed the "
+                    "watchdog from a place that can tell whether the program is still "
+                    "healthy. Accepting RAISE would have rebooted a program that asked to "
+                    "recover.")
+            case _:
+                raise CompileError(
+                    "a watchdog mode is watchdog.WatchDogMode.RESET, or None to disable it.")
 
     @inline
     def feed(self):

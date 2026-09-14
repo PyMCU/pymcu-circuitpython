@@ -7,8 +7,13 @@
 class WatchDogMode:
     """Watchdog modes, as CircuitPython's watchdog.WatchDogMode.
 
-    AVR supports system-reset only; RAISE (interrupt) is
-    defined for API compatibility but behaves as RESET on this target.
+    RESET is what the AVR's watchdog does: the part restarts. RAISE fires an interrupt
+    instead and lets the program keep running, and this HAL does not program that, so asking
+    for it is refused where it is written rather than quietly giving a reset -- a program
+    that expects to catch a WatchDogTimeout and recover would instead reboot, which is the
+    opposite of what it asked for.
+
+    `watchdog.mode = None` disables the watchdog, as upstream allows.
     """
-    RESET = 0
-    RAISE = 1
+    RESET = 1
+    RAISE = 2

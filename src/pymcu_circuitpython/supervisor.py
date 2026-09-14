@@ -74,9 +74,16 @@ class _Runtime:
 
     @property
     def serial_bytes_available(self) -> uint32:
-        # No supervisor-managed console queue; use busio.UART.in_waiting for
-        # actual received-byte counts on the hardware UART.
-        return 0
+        """How many bytes are waiting on the console.
+
+        It was a constant zero, so `while not supervisor.runtime.serial_bytes_available:`
+        never ended and the idiom every CircuitPython example uses to wait for input hung.
+        It asks the console's UART now. The console is polled rather than buffered, so the
+        answer is 0 or 1: the hardware holds one byte and has no count to give. For a real
+        count, construct a busio.UART, which turns the receive ring on.
+        """
+        from pymcu.hal.uart import UART as _UART
+        return _UART(115200).available()
 
 
 runtime = _Runtime()
