@@ -137,12 +137,18 @@ class DigitalInOut:
         """Configure pin as output with optional initial value and drive mode."""
         self._direction  = Direction.OUTPUT
         self._drive_mode = drive_mode
-        self._pin.mode(_Pin.OUT)
+        # The level first, the direction second: the pin then drives `value` from its
+        # first cycle as an output instead of whatever the latch held (a pull-up, say).
         match value:
             case 0:
                 self._pin.low()
             case _:
                 self._pin.high()
+        match drive_mode:
+            case DriveMode.OPEN_DRAIN:
+                self._pin.mode(_Pin.OPEN_DRAIN)
+            case _:
+                self._pin.mode(_Pin.OUT)
 
     @inline
     def switch_to_input(self, pull=None):
@@ -159,6 +165,7 @@ class DigitalInOut:
     def deinit(self):
         """Release the pin resource (sets pin back to input, no pull)."""
         self._pin.mode(_Pin.IN)
+        self._pin.pull(0)
         self._pull_mode  = None
         self._drive_mode = DriveMode.PUSH_PULL
         self._direction  = Direction.INPUT

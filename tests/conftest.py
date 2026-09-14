@@ -45,7 +45,7 @@ def _install_hal_mocks() -> None:
                 return self._mode
             self._mode = m
 
-        def pull(self, p):    pass
+        def pull(self, p):    self._pull = p
         def irq(self, trigger=None, handler=None): pass
 
     class _MockUART:

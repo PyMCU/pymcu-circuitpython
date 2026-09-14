@@ -63,3 +63,29 @@ def test_no_legacy_helpers():
 def test_context_manager():
     with DigitalInOut("PB5") as d:
         d.direction = Direction.OUTPUT
+
+
+def test_deinit_releases_the_pin_without_pull():
+    # PyMCU#309: on the AVR the pull-up latch is the output latch, so releasing a pin
+    # means the HAL's mode(IN) AND pull(0); deinit() used to leave the pull-up on.
+    d = DigitalInOut("PB5")
+    d.direction = Direction.OUTPUT
+    d.value = True
+    d.pull = Pull.UP
+    d.deinit()
+    assert d.direction == Direction.INPUT
+    assert d.pull is None
+    assert d._pin._mode == 1
+    assert d._pin._pull == 0
+
+
+def test_switch_to_output_sets_the_level_before_the_direction():
+    # The pin drives `value` from its first cycle as an output instead of the latch's
+    # previous content: the mock records the order of the two writes.
+    d = DigitalInOut("PB5")
+    order = []
+    real_mode, real_value = d._pin.mode, d._pin.value
+    d._pin.mode = lambda m=None: (order.append("mode"), real_mode(m))[1]
+    d._pin.high = lambda: order.append("high")
+    d.switch_to_output(True)
+    assert order == ["high", "mode"]
