@@ -17,3 +17,16 @@ def test_frequency():
 def test_context_manager():
     with PWMOut("PD6", duty_cycle=0) as p:
         p.duty_cycle = 100
+
+
+def test_frequency_setter_reprograms_the_timer():
+    from pymcu.exceptions import CompileError
+    import pytest
+
+    p = PWMOut("PD6", frequency=1000, variable_frequency=True)
+    p.frequency = 20000
+    assert p.frequency == 20000
+
+    fixed = PWMOut("PD6", frequency=1000)
+    with pytest.raises(CompileError):
+        fixed.frequency = 20000

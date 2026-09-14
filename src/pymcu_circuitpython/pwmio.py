@@ -14,6 +14,7 @@
 #       We scale between the two representations.
 
 from pymcu.chips import __CHIP__
+from pymcu.exceptions import CompileError
 from pymcu.types import uint8, uint16, inline
 if __CHIP__.arch == "avr":
     from pymcu.hal.pwm import PWM as _PWM
@@ -49,8 +50,16 @@ class PWMOut:
 
     @frequency.setter
     def frequency(self, val: uint16):
-        """Set PWM frequency (only valid when variable_frequency=True)."""
+        """Set PWM frequency. CircuitPython allows it only on a PWMOut constructed with
+        variable_frequency=True and raises otherwise; that construction argument is a
+        compile-time constant here, so the refusal comes at compile time. The timer is
+        reprogrammed to the nearest prescaler for the new frequency."""
+        if self._variable_freq == 0:
+            raise CompileError(
+                "PWMOut.frequency is read-only: construct the PWMOut with "
+                "variable_frequency=True to change the frequency after construction")
         self._frequency = val
+        self._pwm.set_freq(val)
 
     @property
     def variable_frequency(self) -> uint8:
