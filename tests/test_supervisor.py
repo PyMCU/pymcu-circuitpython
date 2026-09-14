@@ -35,3 +35,11 @@ def test_wrap_aware_elapsed_is_still_expressible():
 def test_runtime_flags():
     assert supervisor.runtime.serial_connected == 1
     assert supervisor.runtime.usb_connected == 0
+
+
+def test_serial_bytes_available_asks_the_uart():
+    # It was a constant zero, so `while not serial_bytes_available:` never ended.
+    from unittest.mock import patch
+    import pymcu.hal.uart as _u
+    with patch.object(_u.UART, "available", return_value=1):
+        assert supervisor.runtime.serial_bytes_available == 1

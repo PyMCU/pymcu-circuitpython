@@ -112,3 +112,39 @@ def test_reset_uses_watchdog():
             pass
         else:
             raise AssertionError("reset() did not arm the watchdog")
+
+
+def test_the_watchdog_mode_none_disables_it():
+    # It armed for any value, and `mode = None` did not compile at all.
+    from watchdog import WatchDogMode
+    microcontroller.watchdog.timeout = 2.0
+    microcontroller.watchdog.mode = WatchDogMode.RESET
+    assert microcontroller.watchdog.mode == 1
+    microcontroller.watchdog.mode = None
+    assert microcontroller.watchdog.mode == 0
+
+
+def test_the_watchdog_raise_mode_is_refused_rather_than_given_a_reset():
+    import pytest
+    from pymcu.exceptions import CompileError
+    from watchdog import WatchDogMode
+    with pytest.raises(CompileError) as e:
+        microcontroller.watchdog.mode = WatchDogMode.RAISE
+    assert "RESET" in str(e.value)
+    microcontroller.watchdog.mode = None
+
+
+def test_an_unknown_watchdog_mode_is_refused():
+    import pytest
+    from pymcu.exceptions import CompileError
+    with pytest.raises(CompileError):
+        microcontroller.watchdog.mode = 99
+    microcontroller.watchdog.mode = None
+
+
+def test_the_nvm_length_comes_from_the_hal():
+    # It was a 1024 literal in the layer, reported on every chip.
+    from unittest.mock import patch
+    import pymcu.hal.eeprom as _e
+    with patch.object(_e.EEPROM, "size", return_value=512):
+        assert len(microcontroller.nvm) == 512

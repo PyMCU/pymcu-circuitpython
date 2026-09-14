@@ -153,6 +153,10 @@ def _install_hal_mocks() -> None:
         def write(self, addr, value):    _MockEEPROM._store[addr] = value & 0xFF
         def read(self, addr):            return _MockEEPROM._store.get(addr, 0)
 
+        # In step with pymcu.hal.eeprom.EEPROM: the size is the part's, not a constant the
+        # layer keeps. The mock chip is an ATmega328P.
+        def size(self):                  return 1024
+
     class _MockDACPin:
         # In step with pymcu.hal.dac.DACPin: no AVR part has a converter, so constructing
         # one is refused where it is written instead of compiling to nothing.
