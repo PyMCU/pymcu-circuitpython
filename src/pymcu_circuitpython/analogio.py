@@ -1,23 +1,22 @@
 # CircuitPython-compatible analogio module for PyMCU
 #
-# Provides AnalogIn (and a guarded AnalogOut) mirroring CircuitPython's
-# analogio API.
+# Provides AnalogIn and AnalogOut, mirroring CircuitPython's analogio API.
 #
 # Usage (CircuitPython style):
 #   from analogio import AnalogIn
 #   import board
 #
 #   adc = AnalogIn(board.A0)
-#   val = adc.value              # int, 0-65535 (scaled from the 10-bit ADC)
-#   vref = adc.reference_voltage # float volts
+#   val = adc.value              # int, 0-65535, full scale on the pin reads 65535
+#   vref = adc.reference_voltage # float volts, the reference the converter measures against
+#   volts = val * vref / 65535
 #
-# Note: CircuitPython's AnalogIn.value is 16-bit (0-65535). The AVR ADC is
-#       10-bit (0-1023), so we scale by 64x to match CircuitPython behaviour.
+# Nothing here knows a converter's width, its reference or which pins have a channel
+# behind them: pymcu.hal.adc answers all three, and refuses a pin it has no channel for
+# where the AnalogIn is written.
 
-from pymcu.types import uint16, inline, warning
-from pymcu.chips import __CHIP__
-if __CHIP__.arch == "avr":
-    from pymcu.hal.adc import AnalogPin as _AnalogPin
+from pymcu.types import uint16, inline
+from pymcu.hal.adc import AnalogPin as _AnalogPin
 
 
 class AnalogIn:
@@ -27,18 +26,20 @@ class AnalogIn:
 
     @property
     def value(self) -> uint16:
-        """Read the ADC scaled to 16-bit (0-65535) to match CircuitPython."""
-        self._adc.start()
-        raw10: uint16 = self._adc.read()
-        return raw10 << 6  # Scale 10-bit to 16-bit
+        """The pin's voltage as a 16-bit number, 0 to 65535, as CircuitPython reports it."""
+        # read_u16 selects this pin's channel, converts and scales in one HAL call. The old
+        # start() + read() pair started a conversion, threw it away and started another.
+        return self._adc.read_u16()
 
     @property
     def reference_voltage(self) -> float:
-        """ADC reference voltage in volts (5.0 V on standard 5 V AVR boards).
+        """The voltage the converter measures against, in volts.
 
-        Returned as a compile-time float literal, so it folds away at zero cost.
+        Comes from the HAL, which knows what each part's converter is wired to: the supply
+        rail on the AVR and PIC parts, 3.3 V on the RP parts. It is a compile-time constant
+        on every target, so the division that turns `value` into volts folds to a constant.
         """
-        return 5.0
+        return self._adc.reference_volts()
 
     @inline
     def deinit(self):
@@ -55,9 +56,39 @@ class AnalogIn:
 
 
 class AnalogOut:
-    """Analog (DAC) output -- not available on AVR (no DAC peripheral)."""
+    """A pin driven at an analog voltage by a digital-to-analog converter.
 
-    @warning("analogio.AnalogOut requires a hardware DAC, which AVR targets do not have; this is a no-op. Use pwmio.PWMOut for an analog-like output.")
+    The converter is the chip's, so a part that has none refuses the construction where it
+    is written instead of building a program that drives nothing. On the AVR that refusal
+    names pwmio.PWMOut, which with an RC filter on the pin is what an Arduino sketch means
+    by analogWrite.
+    """
+
     @inline
     def __init__(self, pin):
-        pass
+        from pymcu.hal.dac import DACPin as _DACPin
+        self._value = 0
+        self._dac = _DACPin(pin)
+
+    @property
+    def value(self) -> uint16:
+        """The last value written, 0 to 65535. CircuitPython's AnalogOut.value is write-only
+        in the sense that it reads back what was written, not the pin."""
+        return self._value
+
+    @value.setter
+    def value(self, val: uint16):
+        self._value = val
+        self._dac.set_value_u16(val)
+
+    @inline
+    def deinit(self):
+        self._dac.deinit()
+
+    @inline
+    def __enter__(self):
+        return self
+
+    @inline
+    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+        self.deinit()
