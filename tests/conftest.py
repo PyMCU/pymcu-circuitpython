@@ -333,7 +333,18 @@ def _install_hal_mocks() -> None:
     _reg("i2c",      I2C=_MockI2C)
     _reg("watchdog", Watchdog=MagicMock)
     _reg("eeprom",   EEPROM=_MockEEPROM)
-    _reg("timer",    millis=lambda: 0, millis_init=lambda: None)
+    # millis() ADVANCES. A clock that always reads zero is not a clock: alarm's polling
+    # loop waits on it, so a constant made the loop run for ever. One millisecond a call is
+    # the cheapest thing that behaves like time passing.
+    class _Clock:
+        now = 0
+
+        @classmethod
+        def millis(cls):
+            cls.now += 1
+            return cls.now
+
+    _reg("timer",    millis=_Clock.millis, millis_init=lambda: None)
 
     # --- pymcu.time (time.py / utime.py import delay_ms, delay_us) ------ #
     # The real pymcu.time imports __CHIP__ from pymcu.chips at module load,
