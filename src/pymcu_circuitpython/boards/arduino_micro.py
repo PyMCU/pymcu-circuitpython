@@ -41,36 +41,3 @@ SCK  = "PB1"   # ICSP SCK  / PCINT1
 MOSI = "PB2"   # ICSP MOSI / PCINT2
 MISO = "PB3"   # ICSP MISO / PCINT3
 SS   = "PB0"   # ICSP SS   / PCINT0
-
-
-# The three bus constructors every Adafruit guide opens with: `i2c = board.I2C()` is the
-# first line of nearly every sensor example, and they did not exist here at all.
-#
-# They are functions and not module-level objects because a bus must only be built when the
-# program asks for one: a module-level `i2c = busio.I2C(SCL, SDA)` would program the TWI in
-# every program that imports board.
-#
-# They take no arguments, as CircuitPython's do: board.UART() is the board's default UART,
-# 9600 8N1. It leaves the receive ring off, where busio.UART turns it on by default, because
-# an uncalled function that registers an ISR still plants it: a buffered UART here cost every
-# program that imports board the 118 bytes of the receive interrupt whether or not it ever
-# built one. For another rate, or for the buffer that makes in_waiting a count, construct
-# busio.UART(board.TX, board.RX, ...) directly.
-#
-# The aliases are _board_* and not _I2C/_SPI/_UART because an import alias is not scoped to
-# its module in the compiler's flattening: busio already aliases the HAL classes to those
-# names, and a second module using them makes each class construct itself, reported as a
-# recursive __init__ in a file the change never touched (PyMCU#320).
-from busio import I2C as _board_i2c, SPI as _board_spi, UART as _board_uart
-
-
-def I2C():
-    return _board_i2c(SCL, SDA)
-
-
-def SPI():
-    return _board_spi(SCK, MOSI, MISO)
-
-
-def UART():
-    return _board_uart(TX, RX, baudrate=9600, receiver_buffer_size=1)
