@@ -148,6 +148,64 @@ def _install_hal_mocks() -> None:
         def set_value_u16(self, value): pass
         def deinit(self):               pass
 
+    class _MockPulseCapture:
+        # In step with pymcu.hal.pulse.PulseCapture: a queue of microsecond durations, a
+        # capacity the HAL fixes at compile time, and a maxlen larger than it refused.
+        CAPACITY = 128
+
+        def __init__(self, pin, maxlen=2, idle_state=0):
+            if maxlen > self.CAPACITY:
+                raise CompileError(
+                    "this pulse capture can hold 128 pulses and cannot be sized per program: "
+                    "the buffer is a fixed array in the HAL, allocated at compile time.")
+            if maxlen == 0:
+                raise CompileError(
+                    "a pulse capture with room for no pulses would record nothing.")
+            self._maxlen = maxlen
+            self._q: list = []
+            self._paused = 0
+
+        def feed(self, *durations):
+            """Test-only: what the pin would have produced."""
+            for d in durations:
+                if not self._paused and len(self._q) < self._maxlen:
+                    self._q.append(d)
+
+        def count(self):     return len(self._q)
+        def maxlen(self):    return self._maxlen
+        def capacity(self):  return self.CAPACITY
+        def get(self, i):    return self._q[i] if i < len(self._q) else 0
+        def popleft(self):   return self._q.pop(0) if self._q else 0
+        def clear(self):     self._q.clear()
+        def pause(self):     self._paused = 1
+        def resume(self):    self._paused = 0
+        def paused(self):    return self._paused
+        def deinit(self):    self._paused = 1
+
+    class _MockPulseTrain:
+        # In step with pymcu.hal.pulse.PulseTrain: the carrier comes out of one pin, and any
+        # other is refused where the train is written.
+        PIN = "PD3"
+
+        def __init__(self, pin, freq=38000, duty_u16=32768):
+            if pin != self.PIN:
+                raise CompileError(
+                    "a pulse train's carrier comes out of OC2B, which is PD3 (D3 on an "
+                    "Arduino board) and nothing else on this part.")
+            if freq < 7800 or freq > 1000000:
+                raise CompileError(
+                    "this carrier frequency is outside what Timer2 reaches as this HAL "
+                    "programs it: about 7.8 kHz to 1 MHz at a 16 MHz clock.")
+            self.freq, self.duty = freq, duty_u16
+            self.sent: list = []
+
+        def send(self, pulses, n):
+            self.sent = list(pulses[:n])
+
+        def carrier_on(self):  pass
+        def carrier_off(self): pass
+        def deinit(self):      pass
+
     class _MockI2C:
         # In step with pymcu.hal.i2c.I2C: the SCL rate reaches the constructor, and
         # frequency() reports what the integer bit-rate register can actually clock.
@@ -192,6 +250,7 @@ def _install_hal_mocks() -> None:
     _reg("uart",     UART=_MockUART)
     _reg("adc",      AnalogPin=_MockAnalogPin)
     _reg("dac",      DACPin=_MockDACPin)
+    _reg("pulse",    PulseCapture=_MockPulseCapture, PulseTrain=_MockPulseTrain)
     _reg("pwm",      PWM=_MockPWM)
     _reg("spi",      SPI=_MockSPI)
     _reg("i2c",      I2C=_MockI2C)
