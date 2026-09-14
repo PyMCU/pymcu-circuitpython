@@ -155,10 +155,12 @@ def _install_hal_mocks() -> None:
     chips = ModuleType("pymcu.chips")
     chips.__CHIP__ = _Chip()
     chips.__FREQ__ = 16_000_000
+    chips.__TIMEBASE__ = 0
     # The compiler binds __FREQ__ as a name every module can read without importing it
     # (microcontroller.cpu.frequency returns it bare); under CPython it is a builtin here.
     import builtins
     builtins.__FREQ__ = 16_000_000
+    builtins.__TIMEBASE__ = 0
     chips.device_info = lambda: _DeviceInfo()
     sys.modules["pymcu.chips"] = chips
 
