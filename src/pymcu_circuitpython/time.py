@@ -23,19 +23,36 @@ def sleep(seconds: float):
     is what a CircuitPython program writes, the whole thing folds to the chunks it needs.
     """
     from pymcu.time import delay_ms, delay_us
-    total_us: uint32 = uint32(seconds * 1000000.0)
-    whole_ms: uint32 = total_us // 1000
-    while whole_ms > 60000:
-        delay_ms(60000)
-        whole_ms = whole_ms - 60000
-    if whole_ms != 0:
-        delay_ms(uint16(whole_ms))
-    rest_us: uint16 = uint16(total_us - (total_us // 1000) * 1000)
-    while rest_us > 200:
-        delay_us(200)
-        rest_us = rest_us - 200
-    if rest_us != 0:
-        delay_us(uint8(rest_us))
+    # With a literal duration, which is what a CircuitPython program writes, every guard
+    # below folds and sleep(1) is one calibrated delay_ms(1000) and nothing else; the
+    # chunk loops are only lowered for a duration that needs them (past 60 s, or a
+    # sub-millisecond remainder). Three things this shape avoids, each measured:
+    #  - a `while` counting a local down from the start kept the 32-bit arithmetic in
+    #    every program (the servo program: 66 to 924 bytes for a sleep(1));
+    #  - a `range()` over a folded expression is lowered as a run-time loop (PyMCU#326);
+    #  - a call argument that is a folded LOCAL is bound as a variable, so delay_ms(ms)
+    #    took the generic subroutine instead of the calibrated constant loop (+60 bytes,
+    #    974 us for 1000; PyMCU#327). Hence the duration is spelled out of `seconds` at
+    #    every use instead of being held in a local. Rounded to the nearest microsecond:
+    #    0.001 * 1000000.0 in single precision is a hair under 1000.
+    if uint32(seconds * 1000000.0 + 0.5) // 1000 > 60000:
+        left: uint32 = uint32(seconds * 1000000.0 + 0.5) // 1000
+        while left > 60000:
+            delay_ms(60000)
+            left = left - 60000
+        if left != 0:
+            delay_ms(uint16(left))
+    elif uint32(seconds * 1000000.0 + 0.5) // 1000 != 0:
+        delay_ms(uint16(uint32(seconds * 1000000.0 + 0.5) // 1000))
+    if uint32(seconds * 1000000.0 + 0.5) % 1000 > 200:
+        left_us: uint16 = uint16(uint32(seconds * 1000000.0 + 0.5) % 1000)
+        while left_us > 200:
+            delay_us(200)
+            left_us = left_us - 200
+        if left_us != 0:
+            delay_us(uint8(left_us))
+    elif uint32(seconds * 1000000.0 + 0.5) % 1000 != 0:
+        delay_us(uint8(uint32(seconds * 1000000.0 + 0.5) % 1000))
 
 
 @inline
