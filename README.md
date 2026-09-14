@@ -33,14 +33,20 @@ frequency = 16000000
 |--------|------------------|--------|-------|
 | `board` | Pin constants (D0-D13, A0-A5, LED, TX, RX, etc.) | ✅ Complete | Arduino Uno pin mapping |
 | `digitalio` | `DigitalInOut`, `Direction`, `Pull`, `DriveMode` | ✅ Complete | ZCA properties `.direction`, `.value`, `.pull`, `.drive_mode`; `pull=None` and `Pull.UP` (AVR has no pull-down) |
-| `analogio` | `AnalogIn`, `AnalogOut` | ✅ Complete | 16-bit ADC values (scaled from 10-bit); `reference_voltage` float; `AnalogOut` unsupported (no DAC) |
-| `busio` | `UART`, `SPI`, `I2C` | ✅ Complete | Buffer-based `write`/`readinto`/`writeto`/`readfrom_into`/`write_readinto`; `read()`/`scan()` return heap objects → use `readinto`/`probe` |
-| `pwmio` | `PWMOut` | ✅ Complete | 16-bit duty cycle (scaled to 8-bit Timer0/Timer2) |
-| `time` | `sleep()`, `monotonic()`, `monotonic_ns()` | ✅ Complete | `sleep(0.5)` float seconds; `monotonic()` float (soft-float) |
+| `analogio` | `AnalogIn`, `AnalogOut` | ✅ Complete | Full-scale `value` (1023 counts map to 65535); `reference_voltage` comes from the HAL; a pin with no channel and `AnalogOut` are refused where written |
+| `busio` | `UART`, `SPI`, `I2C` | ✅ Complete | Every parameter reaches the hardware: frame format, bit rates, SPI mode, `timeout`. `in_waiting` is a count; `read()`/`readline()`/`scan()` are refused, naming `readinto`/`probe` |
+| `bitbangio` | `I2C`, `SPI` | ✅ Complete | The same API as `busio`, on any pins. Mode 0 only for SPI |
+| `pwmio` | `PWMOut` | ✅ Complete | 16-bit duty cycle; `frequency` reports what the pin emits. On D9/D10 the frequency is exact, which is what makes a servo work |
+| `pulseio` | `PulseIn`, `PulseOut` | ✅ ATmega 48/88/168/328 | Pulse lengths in microseconds; a 38 kHz carrier gated by a pulse list. `send(pulses, count)` takes the count |
+| `countio` | `Counter`, `Edge` | ✅ Complete | A pin interrupt and a 32-bit count. One per program; a single edge needs D2 or D3 |
+| `keypad` | `Keys`, `Event` | ⚠️ Partial | Takes a list of `DigitalInOut`, not pin names. `KeyMatrix` is not written |
+| `rainbowio` | `colorwheel` | ✅ Complete | Red, green, blue and back across 0 to 255 |
+| `adafruit_motor.servo` | `Servo`, `ContinuousServo` | ✅ On D9/D10 | Import it as `from adafruit_motor.servo import Servo` |
+| `time` | `sleep()`, `monotonic()`, `monotonic_ns()` | ✅ Complete | `sleep()` takes any duration, from microseconds to minutes; `monotonic_ns()` wraps at 4.295 s and says so |
 | `supervisor` | `ticks_ms/add/diff`, `reload`, `runtime` | ✅ Complete | 2²⁹ ms wrap and signed `ticks_diff`, matching CircuitPython |
-| `microcontroller` | `cpu.frequency/temperature/voltage/uid`, `reset()`, `delay_us()` | ✅ Complete | `reset()` via watchdog; `temperature`/`voltage` soft-float; `uid` unavailable on AVR |
+| `microcontroller` | `cpu.*`, `nvm`, `watchdog`, `reset()`, `delay_us()` | ✅ Complete | `len(nvm)` is the part's EEPROM; `watchdog.mode = None` disables it; `uid` is refused rather than eight zeros |
 | `neopixel` | `NeoPixel` | ✅ Yes | Ships in [pymcu-lib-neopixel](https://github.com/PyMCU/pymcu-lib-neopixel), pulled in as a dependency: `import neopixel` is unchanged |
-| `alarm` | `TimeAlarm`, `PinAlarm`, `sleep_until_alarms` | ✅ Complete | `TimeAlarm` uses absolute `monotonic_time` (soft-float); `PinAlarm` polls |
+| `alarm` | `TimeAlarm`, `PinAlarm`, `sleep_until_alarms` | ✅ Complete | Up to four alarms at once; the return value is which one fired, because an alarm object cannot come back |
 
 ### Feature Comparison
 
@@ -60,9 +66,20 @@ frequency = 16000000
 
 ### Known limitations (not implementable on bare-metal AVR)
 
-- `uart.read()/readline()` and `i2c.scan()` return heap objects (`bytes`/`list`);
-  use `uart.readinto(buf)` and `i2c.probe(addr)` instead.
-- `analogio.AnalogOut` requires a DAC (absent on AVR).
+Each of these is **refused where it is written**, with a message naming what does work,
+rather than compiling to something that does nothing.
+
+- `uart.read()`, `uart.readline()`, `i2c.scan()` and `keypad`'s `events.get()` return heap
+  objects (`bytes`, `list`, an `Event`). Use `uart.readinto(buf)`, `i2c.probe(addr)` in a
+  loop, and `events.get_into(event)`.
+- `analogio.AnalogOut` needs a digital-to-analog converter and no AVR part has one; the
+  refusal names `pwmio.PWMOut` with an RC filter.
+- `microcontroller.cpu.uid`: this part has no unique serial anyone documents. Write a random
+  value into `microcontroller.nvm` at first boot and read it back.
+- `pulseio.PulseOut.send(pulses, count)` takes the count, because a module-level array loses
+  its length when it crosses a parameter.
+- `keypad.Keys` takes a list of `digitalio.DigitalInOut`, not a list of pin names.
+- `rotaryio` and `keypad.KeyMatrix` are not implemented yet.
 - `neopixel` (from `pymcu-lib-neopixel`): whole-strip `fill((r, g, b))` and addressable
   `pixels[i] = (r, g, b)` both work, backed by a per-strip SRAM framebuffer
   (3 bytes/pixel). The packed `fill(0xRRGGBB)` integer form is not
@@ -97,7 +114,7 @@ def main():
 import board
 from analogio import AnalogIn
 from pwmio import PWMOut
-from time import sleep_ms
+from time import sleep
 
 
 def main():
@@ -105,8 +122,8 @@ def main():
     led = PWMOut(board.D6, duty_cycle=0)
 
     while True:
-        led.duty_cycle = pot.value  # 0-65535
-        sleep_ms(10)
+        led.duty_cycle = pot.value  # 0-65535, full scale on the pin reads 65535
+        sleep(0.01)
 ```
 
 ### UART Example
@@ -121,13 +138,14 @@ def main():
     led = DigitalInOut(board.LED)
     led.direction = Direction.OUTPUT
 
-    uart = busio.UART(board.TX, board.RX, baudrate=9600)
-    uart.println("READY")
+    uart = busio.UART(board.TX, board.RX, baudrate=9600, timeout=500)
+    uart.write(b"READY\r\n")
 
+    buf = bytearray(1)
     while True:
-        byte = uart.read()
-        led.value = 1
-        uart.write(byte)
+        if uart.readinto(buf):
+            led.value = True
+            uart.write(buf)
         led.value = 0
 ```
 
@@ -178,28 +196,24 @@ if val == 0xFFFF:
 
 ### No F-Strings (Yet)
 
-Use UART write methods:
+Use `print()`, which takes an f-string and streams it:
 
 ```python
-# CircuitPython
 print(f"temp={temp}")
-
-# pymcu-circuitpython
-uart.write_str("temp=")
-uart.print_byte(temp)
 ```
 
-### Sleep Uses Integers
-
-Use milliseconds instead of float seconds:
+### Sleep takes float seconds, as upstream
 
 ```python
-# CircuitPython
-time.sleep(0.5)
-
-# pymcu-circuitpython
-time.sleep_ms(500)
+time.sleep(0.5)        # half a second
+time.sleep(0.0005)     # 500 microseconds
+time.sleep(120)        # two minutes
 ```
+
+It used to go through a 16-bit millisecond count, so anything past 65.535 seconds wrapped
+and anything under a millisecond did not sleep at all. `sleep_ms()` and `sleep_us()` also
+exist, but they are **PyMCU extensions**: upstream `time` defines no such names, so code
+using them will not run under real CircuitPython.
 
 ## Supported Boards
 
