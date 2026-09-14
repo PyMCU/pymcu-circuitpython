@@ -23,11 +23,17 @@
 #     delay and PinAlarm polls the pin. light_sleep_until_alarms() is an alias.
 #   - The triggered alarm is recorded in alarm.wake_alarm.
 
-from pymcu.types import uint8, uint16, inline, warning
+from pymcu.types import uint8, uint16, uint32, inline, warning
 from pymcu.time import delay_ms
 from pymcu.hal.gpio import Pin as _Pin
 
 
+# CircuitPython sets wake_alarm to the alarm object that woke the board. There is nowhere
+# to put an object in a module global here -- an instance assigned to one loses what it is --
+# so this stays None and the alarm that fired comes back as the RETURN VALUE of
+# sleep_until_alarms(), which is its position in the argument list. A program that reads
+# wake_alarm expecting an alarm gets None, which is what it would get on a board that woke
+# from the reset button, so it is at least a value upstream produces.
 wake_alarm = None
 
 
@@ -41,8 +47,20 @@ class _TimeAlarmModule:
 
         @inline
         def __init__(self, monotonic_time: float = 0.0):
-            self._time = monotonic_time
+            # Start the millisecond time base. A TimeAlarm waits on millis(), and the build
+            # starts that clock only for a program that names ticks_ms, monotonic or asyncio
+            # itself: a program whose only use of time is an alarm got a counter that never
+            # moved, so the alarm never fired and sleep_until_alarms never returned.
+            # Programming it twice is programming it the same way twice.
+            from pymcu.hal.timer import millis_init as _millis_init
+            _millis_init()
             self._is_time = 1
+            # The deadline in whole milliseconds, worked out once here. The wait is a
+            # comparison against the millisecond counter, so the soft-float arithmetic
+            # happens at construction instead of on every pass of the polling loop.
+            self._deadline_ms = uint32(monotonic_time * 1000.0)
+            self._pin_name = ""
+            self._value = 0
 
 
 time = _TimeAlarmModule()
@@ -65,9 +83,10 @@ class _PinAlarmModule:
 
         @inline
         def __init__(self, pin, value: uint8 = 1, edge: uint8 = 0, pull: uint8 = 0):
-            self._pin_name = pin
-            self._value    = value
-            self._is_time  = 0
+            self._is_time     = 0
+            self._deadline_ms = 0
+            self._pin_name    = pin
+            self._value       = value
 
 
 pin = _PinAlarmModule()
@@ -75,58 +94,85 @@ pin = _PinAlarmModule()
 
 # -- Top-level sleep functions ------------------------------------------------
 
+# Has this one alarm's condition come true yet? One pass, no waiting.
+#
+# The two arms both read fields the other type also has, so a mixed set of alarms can be
+# polled in one loop. A TimeAlarm carries an empty pin name and a PinAlarm a deadline of
+# zero, and the arm that is not taken folds away wherever the alarm's type is known.
 @inline
-@warning("alarm.sleep_until_alarms() uses the software floating-point runtime for TimeAlarm timing.")
-def sleep_until_alarms(alarm_obj) -> uint8:
-    """Block until the given alarm fires.
-
-    TimeAlarm: sleeps until alarm_obj's absolute monotonic_time is reached.
-    PinAlarm:  polls the pin until it matches the requested level.
-
-    The concrete alarm type is known at compile time (ZCA), so the unused
-    branch is eliminated -- only the relevant path is emitted.
-    """
+def _alarm_fired(alarm_obj) -> uint8:
     if alarm_obj._is_time:
         from pymcu.hal.timer import millis as _millis
-        # monotonic_time is absolute seconds; convert the remaining time to ms.
-        now_s: float = _millis() / 1000.0
-        remaining_s: float = alarm_obj._time - now_s
-        if remaining_s > 0.0:
-            delay_ms(uint16(remaining_s * 1000.0))
+        if _millis() >= alarm_obj._deadline_ms:
+            return 1
         return 0
     else:
-        # Written as an `else` rather than a tail after the `return` above, and that
-        # is load-bearing rather than a style choice. When the guard folds at compile
-        # time the IR generator skips an untaken ELSE arm, but it still lowers a tail
-        # statement that follows a returning `if`. For a TimeAlarm the tail reads
-        # _pin_name, which a TimeAlarm does not have, and lowering it produced
-        # "Parameter 'name' is declared as const ... varies at runtime" -- a message
-        # about a parameter the caller never wrote. Same semantics, one arm lowered.
         _p = _Pin(alarm_obj._pin_name, _Pin.IN)
-        while True:
-            if alarm_obj._value:
-                if _p.value():
-                    return 0
-            else:
-                if _p.value() == 0:
-                    return 0
+        if alarm_obj._value:
+            if _p.value():
+                return 1
+            return 0
+        if _p.value() == 0:
+            return 1
+        return 0
+
+
+@inline
+@warning("alarm.sleep_until_alarms() uses the software floating-point runtime for TimeAlarm timing.")
+def sleep_until_alarms(alarm0, alarm1=None, alarm2=None, alarm3=None) -> uint8:
+    """Block until one of the given alarms fires, and return WHICH.
+
+    It took one alarm and returned a constant 0, so a program waiting on "a time limit or a
+    button" could only wait on one of the two, and could not have told them apart if it had
+    waited on both. Up to four are polled in turn now, and the return value is the position
+    of the one that fired: 0 for the first, 1 for the second, and so on.
+
+    CircuitPython returns the alarm OBJECT and also puts it in alarm.wake_alarm. Neither is
+    possible here -- an instance handed back from a function, or assigned to a module global,
+    loses what it is -- so the position is what comes back. `if alarm.sleep_until_alarms(ta,
+    pa) == 1:` is the shape a program writes.
+
+    There is no true low-power sleep on this part: a TimeAlarm waits on the millisecond
+    counter and a PinAlarm polls its pin, both with the CPU running.
+    """
+    while True:
+        if _alarm_fired(alarm0):
+            return 0
+        match alarm1:
+            case None:
+                pass
+            case _:
+                if _alarm_fired(alarm1):
+                    return 1
+        match alarm2:
+            case None:
+                pass
+            case _:
+                if _alarm_fired(alarm2):
+                    return 2
+        match alarm3:
+            case None:
+                pass
+            case _:
+                if _alarm_fired(alarm3):
+                    return 3
 
 
 @inline
 @warning("alarm.light_sleep_until_alarms() uses the software floating-point runtime for TimeAlarm timing.")
-def light_sleep_until_alarms(alarm_obj) -> uint8:
+def light_sleep_until_alarms(alarm0, alarm1=None, alarm2=None, alarm3=None) -> uint8:
     """Light-sleep variant -- identical to sleep_until_alarms() on AVR."""
-    return sleep_until_alarms(alarm_obj)
+    return sleep_until_alarms(alarm0, alarm1, alarm2, alarm3)
 
 
 @inline
 @warning("alarm.exit_and_deep_sleep_until_alarms() has no true deep sleep on AVR; it blocks until the alarm like light sleep (RAM is retained, the program continues instead of restarting).")
-def exit_and_deep_sleep_until_alarms(alarm_obj) -> uint8:
+def exit_and_deep_sleep_until_alarms(alarm0, alarm1=None, alarm2=None, alarm3=None) -> uint8:
     """Deep-sleep entry point (CircuitPython alarm.exit_and_deep_sleep_until_alarms).
 
     CircuitPython powers the chip down and restarts from scratch when the alarm
     fires. AVR has no equivalent low-power-with-reset path here, so this blocks
     until the alarm exactly like light_sleep_until_alarms() and then returns to
-    the caller. The triggered alarm is still recorded in alarm.wake_alarm.
+    the caller, with the position of the alarm that fired.
     """
-    return sleep_until_alarms(alarm_obj)
+    return sleep_until_alarms(alarm0, alarm1, alarm2, alarm3)
