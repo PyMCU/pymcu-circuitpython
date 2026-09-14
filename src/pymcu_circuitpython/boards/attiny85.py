@@ -25,3 +25,14 @@ MISO = "PB1"   # USI MISO / DO
 SCL  = "PB2"   # USI SCL (same as SCK)
 SDA  = "PB0"   # USI SDA (same as MOSI)
 INT0 = "PB2"   # External interrupt 0
+
+# Dn numbering (#4). ATtinyCore and the Digispark silkscreen both number PB0..PB5
+# as 0..5, so this is the spelling published snippets for these parts use. There
+# is deliberately no LED: a bare DIP has none, and the only free leg left to point
+# it at would be PB5, which is RESET.
+D0 = "PB0"
+D1 = "PB1"
+D2 = "PB2"
+D3 = "PB3"
+D4 = "PB4"
+D5 = "PB5"   # RESET by default -- GPIO requires RSTDISBL fuse!

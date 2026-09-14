@@ -199,6 +199,56 @@ def test_attiny25_pins():
     assert attiny25.A1  == "PB2"
 
 
+# ── Dn numbering on the bare 8-pin parts (#4) ─────────────────────────────  #
+#
+# These files used to expose PBn and nothing else, so a CircuitPython program
+# written for them had no spelling that compiled: board.LED is absent because the
+# chip has no LED, board.Dn was absent too, and a raw integer is refused by the
+# HAL. Dn is what every published snippet for these parts uses -- ATtinyCore and
+# the Digispark silkscreen both number PB0..PB5 as 0..5 -- so it is the form a
+# newcomer pastes.
+
+def test_attiny85_dn_numbering():
+    assert attiny85.D0 == "PB0"
+    assert attiny85.D1 == "PB1"
+    assert attiny85.D2 == "PB2"
+    assert attiny85.D3 == "PB3"
+    assert attiny85.D4 == "PB4"
+    assert attiny85.D5 == "PB5"
+
+
+def test_attiny45_dn_numbering():
+    assert attiny45.D0 == "PB0"
+    assert attiny45.D5 == "PB5"
+
+
+def test_attiny25_dn_numbering():
+    assert attiny25.D0 == "PB0"
+    assert attiny25.D5 == "PB5"
+
+
+def test_attiny13_dn_numbering():
+    assert attiny13.D0 == "PB0"
+    assert attiny13.D5 == "PB5"
+
+
+def test_attiny13a_dn_numbering():
+    assert attiny13a.D0 == "PB0"
+    assert attiny13a.D5 == "PB5"
+
+
+def test_bare_attiny_parts_have_no_led():
+    """A bare DIP has no LED soldered to it, so LED must stay absent.
+
+    Inventing one would point at PB5 on these parts, which is RESET: driving it
+    needs the RSTDISBL fuse, after which the chip can no longer be programmed
+    over ISP. The ATtiny85 BOARDS do define LED, because they really have one.
+    """
+    for mod in (attiny85, attiny45, attiny25, attiny13, attiny13a):
+        assert not hasattr(mod, "LED")
+    assert digispark.LED == "PB1"
+
+
 # ── ATtiny84 ──────────────────────────────────────────────────────────────  #
 
 def test_attiny84_pins():
