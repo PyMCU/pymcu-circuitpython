@@ -9,9 +9,9 @@
 #   pwm = PWMOut(board.D6, duty_cycle=32768)  # 50% duty cycle
 #   pwm.duty_cycle = 49152                     # 75% duty cycle
 #
-# Note: CircuitPython's PWMOut.duty_cycle is 16-bit (0-65535).
-#       PyMCU's PWM.set_duty() uses 8-bit (0-255) on AVR Timer0/Timer2.
-#       We scale between the two representations.
+# Note: CircuitPython's PWMOut.duty_cycle is 16-bit (0-65535), and so is the HAL's
+#       duty_u16 / set_duty_u16 on every architecture; each chip's HAL resolves it
+#       to its own compare register. Nothing here knows a chip's resolution.
 
 from pymcu.chips import __CHIP__
 from pymcu.exceptions import CompileError
@@ -24,14 +24,13 @@ class PWMOut:
     @inline
     def __init__(self, pin_name, *, duty_cycle: uint16 = 0, frequency: uint16 = 500,
                  variable_frequency: uint8 = 0):
-        duty8: uint8 = (duty_cycle >> 8) & 0xFF
         self._duty_cycle_16   = duty_cycle
         self._frequency       = frequency
         self._variable_freq   = variable_frequency
         # The HAL constructor already programs the prescaler and connects the output:
         # a start() here wrote TCCRxB a second time and, since PyMCU#296, read the
         # compare register back to decide whether to reconnect (12 bytes per PWMOut).
-        self._pwm = _PWM(pin_name, duty8, frequency)
+        self._pwm = _PWM(pin_name, freq=frequency, duty_u16=duty_cycle)
 
     @property
     def duty_cycle(self) -> uint16:
@@ -42,8 +41,7 @@ class PWMOut:
     def duty_cycle(self, val: uint16):
         """Set duty cycle from 16-bit value (0-65535)."""
         self._duty_cycle_16 = val
-        duty8: uint8 = (val >> 8) & 0xFF
-        self._pwm.set_duty(duty8)
+        self._pwm.set_duty_u16(val)
 
     @property
     def frequency(self) -> uint16:

@@ -61,11 +61,12 @@ def _install_hal_mocks() -> None:
         def read(self):          return 0
 
     class _MockPWM:
-        def __init__(self, pin, duty=0, freq=500): pass
+        def __init__(self, pin, duty=0, freq=500, invert=0, duty_u16=0): pass
         def start(self):          pass
         def stop(self):           pass
         def deinit(self):         pass
         def set_duty(self, d):    pass
+        def set_duty_u16(self, d): pass
         def set_freq(self, freq):  self._freq = freq
 
     class _MockSPI:
