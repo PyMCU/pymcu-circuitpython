@@ -21,8 +21,10 @@ if __CHIP__.arch == "avr":
 
 
 class PWMOut:
+    # The first parameter is `pin`, as CircuitPython names it. It was `pin_name`, so the
+    # keyword form every Adafruit guide uses -- PWMOut(pin=board.D9, ...) -- did not compile.
     @inline
-    def __init__(self, pin_name, *, duty_cycle: uint16 = 0, frequency: uint16 = 500,
+    def __init__(self, pin, *, duty_cycle: uint16 = 0, frequency: uint16 = 500,
                  variable_frequency: uint8 = 0):
         self._duty_cycle_16   = duty_cycle
         self._frequency       = frequency
@@ -30,7 +32,11 @@ class PWMOut:
         # The HAL constructor already programs the prescaler and connects the output:
         # a start() here wrote TCCRxB a second time and, since PyMCU#296, read the
         # compare register back to decide whether to reconnect (12 bytes per PWMOut).
-        self._pwm = _PWM(pin_name, freq=frequency, duty_u16=duty_cycle)
+        self._pwm = _PWM(pin, freq=frequency, duty_u16=duty_cycle)
+        # What the pin actually emits, worked out here where the HAL's answer folds to a
+        # constant. Read through `frequency` rather than recomputed, so that a driver holding
+        # this PWMOut (adafruit_motor's Servo does) reads a field and not a call.
+        self._real_frequency  = self._pwm.frequency()
 
     @property
     def duty_cycle(self) -> uint16:
@@ -45,8 +51,13 @@ class PWMOut:
 
     @property
     def frequency(self) -> uint16:
-        """Get PWM frequency in Hz."""
-        return self._frequency
+        """The frequency the pin actually emits, which is not always the one asked for.
+
+        It used to report the request. On a timer whose period is fixed at 256 counts the
+        frequencies on offer are a handful of buckets, so PWMOut(board.D6, frequency=5000)
+        emits 7812 Hz and used to say 5000. The HAL answers with what it programmed.
+        """
+        return self._real_frequency
 
     @frequency.setter
     def frequency(self, val: uint16):
@@ -60,6 +71,7 @@ class PWMOut:
                 "variable_frequency=True to change the frequency after construction")
         self._frequency = val
         self._pwm.set_freq(val)
+        self._real_frequency = self._pwm.frequency()
 
     @property
     def variable_frequency(self) -> uint8:
