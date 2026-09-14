@@ -201,19 +201,24 @@ class _NVM:
     Deviations from CircuitPython:
       - Slice access (nvm[a:b]) needs a heap-allocated bytearray and is not
         available on bare metal; index one byte at a time in a loop instead.
-      - len(nvm) is the EEPROM this part actually has, which the HAL answers. It was
-        the ATmega328P's 1024 on every chip, so a program that trusted it wrote past the
-        end of an ATtiny85's 512 bytes and used a quarter of an ATmega2560's 4096.
+      - len(nvm) is 1024, the ATmega328P's EEPROM, on every chip. The part's real size
+        is EEPROM_SIZE in pymcu.hal.eeprom; this cannot ask for it, because a slice of nvm
+        needs the length folded to a literal here (PyMCU#329).
     """
 
+    # The HAL's constant, not a call: a slice of nvm needs this length to fold to a literal,
+    # and even one method hop into the HAL is enough to stop it -- nvm[0:4] failed with
+    # "slice indexing is only supported on named fixed-size arrays".
+    # A LITERAL, and it has to be. A slice of nvm needs this length folded to one, and
+    # nothing else reaches it: a method hop into the HAL, and a module-level constant
+    # imported from the HAL, both make nvm[0:4] fail with "slice indexing is only supported
+    # on named fixed-size arrays" (PyMCU#329). The part's real size is EEPROM_SIZE in
+    # pymcu.hal.eeprom, which is where the fact belongs; this number is the ATmega328P's and
+    # is wrong on an ATtiny85 (512) and an ATmega2560 (4096), which is the half of #16 that
+    # is still open.
     @inline
     def __len__(self) -> uint16:
-        return self._size()
-
-    @inline
-    def _size(self) -> uint16:
-        from pymcu.hal.eeprom import EEPROM as _EEPROM
-        return _EEPROM().size()
+        return 1024
 
     @inline
     def __getitem__(self, index: uint16) -> uint8:

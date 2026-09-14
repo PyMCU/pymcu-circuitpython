@@ -163,9 +163,11 @@ def test_an_unknown_watchdog_mode_is_refused():
     microcontroller.watchdog.mode = None
 
 
-def test_the_nvm_length_comes_from_the_hal():
-    # It was a 1024 literal in the layer, reported on every chip.
-    from unittest.mock import patch
+def test_the_nvm_length_is_a_literal_and_the_hal_knows_the_real_one():
+    # len(nvm) has to be a literal here: a slice of nvm needs it folded to one, and a method
+    # hop into the HAL or a constant imported from it both make nvm[0:4] fail with "slice
+    # indexing is only supported on named fixed-size arrays" (PyMCU#329). The part's real
+    # size lives in pymcu.hal.eeprom, and this number is the ATmega328P's.
     import pymcu.hal.eeprom as _e
-    with patch.object(_e.EEPROM, "size", return_value=512):
-        assert len(microcontroller.nvm) == 512
+    assert len(microcontroller.nvm) == 1024
+    assert _e.EEPROM().size() == 1024
