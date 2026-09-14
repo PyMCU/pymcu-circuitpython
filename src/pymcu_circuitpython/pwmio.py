@@ -28,8 +28,10 @@ class PWMOut:
         self._duty_cycle_16   = duty_cycle
         self._frequency       = frequency
         self._variable_freq   = variable_frequency
+        # The HAL constructor already programs the prescaler and connects the output:
+        # a start() here wrote TCCRxB a second time and, since PyMCU#296, read the
+        # compare register back to decide whether to reconnect (12 bytes per PWMOut).
         self._pwm = _PWM(pin_name, duty8, frequency)
-        self._pwm.start()
 
     @property
     def duty_cycle(self) -> uint16:
