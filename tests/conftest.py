@@ -280,6 +280,53 @@ def _install_hal_mocks() -> None:
         def count(self):  return self._count
         def reset(self):  self._count = 0
 
+    class _MockQuadrature:
+        # In step with pymcu.hal.encoder.Quadrature, including the decoder: the state is
+        # (A << 1) | B, nothing changing and both changing at once are not a direction, and
+        # the old state's high bit exclusive-ored with the new state's low bit says which way.
+        # Both lines have to be on one port, because the handler reads one port register.
+        PORT_OF = {"B": "B", "C": "C", "D": "D"}
+
+        def __init__(self, pin_a, pin_b, pull=1):
+            if self._port(pin_a) != self._port(pin_b):
+                raise CompileError(
+                    "an encoder's two lines have to be on the same port.")
+            if pin_a == pin_b:
+                raise CompileError(
+                    "an encoder's two lines have to be two different pins.")
+            self.pin_a, self.pin_b, self.pull = pin_a, pin_b, pull
+            # An encoder idles with both lines released, which with the pull-ups on reads 11
+            # and not 00. The decoder is primed from the lines, not started at zero.
+            self._state = 3 if pull else 0
+            self._pos = 0
+
+        @staticmethod
+        def _port(pin):
+            if isinstance(pin, str):
+                return pin[1]
+            if pin <= 7:
+                return "D"
+            if pin <= 13:
+                return "B"
+            return "C"
+
+        def lines(self, a, b):
+            """Test-only: what the two lines would be showing now."""
+            now = (1 if a else 0) * 2 + (1 if b else 0)
+            moved = self._state ^ now
+            if moved != 0 and moved != 3:
+                if ((self._state >> 1) ^ now) & 1:
+                    self._pos += 1
+                else:
+                    self._pos -= 1
+            self._state = now
+
+        def position(self):
+            return self._pos
+
+        def set_position(self, value):
+            self._pos = value
+
     class _MockI2C:
         # In step with pymcu.hal.i2c.I2C: the SCL rate reaches the constructor, and
         # frequency() reports what the integer bit-rate register can actually clock.
@@ -328,6 +375,7 @@ def _install_hal_mocks() -> None:
     _reg("softi2c",  SoftI2C=_MockSoftI2C)
     _reg("softspi",  SoftSPI=_MockSoftSPI)
     _reg("counter",  EdgeCounter=_MockEdgeCounter)
+    _reg("encoder",  Quadrature=_MockQuadrature)
     _reg("pwm",      PWM=_MockPWM)
     _reg("spi",      SPI=_MockSPI)
     _reg("i2c",      I2C=_MockI2C)
