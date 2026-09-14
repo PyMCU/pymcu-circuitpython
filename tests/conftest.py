@@ -65,6 +65,7 @@ def _install_hal_mocks() -> None:
         def start(self):          pass
         def stop(self):           pass
         def set_duty(self, d):    pass
+        def set_freq(self, freq):  self._freq = freq
 
     class _MockSPI:
         def __init__(self, mode=0, cs=""): pass
@@ -98,6 +99,13 @@ def _install_hal_mocks() -> None:
     hal = ModuleType("pymcu.hal")
     sys.modules["pymcu.hal"] = hal
 
+    # pymcu.hal.irq: microcontroller.enable_interrupts / disable_interrupts wrap these.
+    irq = ModuleType("pymcu.hal.irq")
+    irq.enable_interrupts = lambda: None
+    irq.disable_interrupts = lambda: None
+    sys.modules["pymcu.hal.irq"] = irq
+    hal.irq = irq
+
     def _reg(name: str, **attrs) -> ModuleType:
         m = ModuleType(f"pymcu.hal.{name}")
         for k, v in attrs.items():
@@ -129,11 +137,55 @@ def _install_hal_mocks() -> None:
     class _DeviceInfo:
         frequency = 16_000_000
 
+    # __CHIP__ is the object the compiler binds to the target: the modules read
+    # __CHIP__.arch and __CHIP__.name (they used to compare it with a string, and
+    # a string here left five of the nine test modules failing at import).
+    class _Chip:
+        arch = "avr"
+        name = "atmega328p"
+        family = "avr"
+        ram_size = 2048
+        flash_size = 32768
+        frequency = 16_000_000
+
+        def __str__(self):
+            return self.name
+
     chips = ModuleType("pymcu.chips")
-    chips.__CHIP__ = "atmega328p"
+    chips.__CHIP__ = _Chip()
+    chips.__FREQ__ = 16_000_000
+    # The compiler binds __FREQ__ as a name every module can read without importing it
+    # (microcontroller.cpu.frequency returns it bare); under CPython it is a builtin here.
+    import builtins
+    builtins.__FREQ__ = 16_000_000
     chips.device_info = lambda: _DeviceInfo()
     sys.modules["pymcu.chips"] = chips
 
 
 
 _install_hal_mocks()
+
+
+# A CircuitPython program spells its own modules by their top-level names, and so does the
+# layer when one module needs another (`from watchdog import WatchDogMode` inside
+# microcontroller.py). The compiler resolves those names to the layer; under CPython this
+# finder does the same, for any top-level name that is a module of the package.
+import importlib.abc
+import importlib.machinery
+import importlib.util
+import pkgutil
+import pymcu_circuitpython as _layer
+
+_LAYER_MODULES = {m.name for m in pkgutil.iter_modules(_layer.__path__)}
+
+
+class _LayerAlias(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if path is not None or fullname not in _LAYER_MODULES or fullname in sys.modules:
+            return None
+        real = importlib.import_module(f"pymcu_circuitpython.{fullname}")
+        sys.modules[fullname] = real
+        return importlib.util.spec_from_loader(fullname, loader=None)
+
+
+sys.meta_path.insert(0, _LayerAlias())
