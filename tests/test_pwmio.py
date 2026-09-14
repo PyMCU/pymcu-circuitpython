@@ -30,3 +30,29 @@ def test_frequency_setter_reprograms_the_timer():
     fixed = PWMOut("PD6", frequency=1000)
     with pytest.raises(CompileError):
         fixed.frequency = 20000
+
+
+def test_deinit_releases_the_pin(monkeypatch):
+    # PyMCU#296: deinit() has to reach the HAL's deinit(), which disconnects the compare
+    # output, drives the pin low and returns it to an input. Stopping the timer is not
+    # it: that freezes the sibling channel and the time base, and leaves the pin at
+    # whatever level the compare latch had.
+    import pymcu_circuitpython.pwmio as pwmio_mod
+
+    calls: list = []
+
+    class _Recorder(pwmio_mod._PWM):
+        def deinit(self):
+            calls.append("deinit")
+        def stop(self):
+            calls.append("stop")
+
+    monkeypatch.setattr(pwmio_mod, "_PWM", _Recorder)
+    p = PWMOut("PD6", duty_cycle=32768)
+    p.deinit()
+    assert calls == ["deinit"]
+
+    calls.clear()
+    with PWMOut("PD6", duty_cycle=32768):
+        pass
+    assert calls == ["deinit"], "the context manager exit is a deinit()"

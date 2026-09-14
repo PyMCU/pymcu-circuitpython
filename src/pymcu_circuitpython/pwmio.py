@@ -73,8 +73,8 @@ class PWMOut:
 
     @inline
     def deinit(self):
-        """Stop PWM output."""
-        self._pwm.stop()
+        """Stop PWM output and release the pin as an input, as CircuitPython does."""
+        self._pwm.deinit()
 
     @inline
     def __enter__(self):

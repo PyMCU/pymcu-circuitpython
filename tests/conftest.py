@@ -64,6 +64,7 @@ def _install_hal_mocks() -> None:
         def __init__(self, pin, duty=0, freq=500): pass
         def start(self):          pass
         def stop(self):           pass
+        def deinit(self):         pass
         def set_duty(self, d):    pass
         def set_freq(self, freq):  self._freq = freq
 
