@@ -32,32 +32,73 @@
 #   cs.value = True
 #   spi.unlock()
 #
-# On AVR the bus pins are fixed in hardware (ATmega328P: UART PD1/PD0,
-# I2C PC5/PC4, SPI PB5/PB3/PB4); the pin arguments are accepted for API
-# compatibility and validated by the underlying HAL.
+# Every parameter this module takes is carried to the HAL, which programs it or refuses it
+# where the bus is constructed. Nothing here knows a register, a prescaler or a chip: the
+# frame format, the bit rates and the buffer sizes are all the HAL's answers. A parameter
+# that was accepted and dropped is the failure this module used to have -- a UART asked for
+# 7E1 ran 8N1, a bus asked for 400 kHz ran at 100, and a display asked for mode 3 at 8 MHz
+# ran mode 0 at 4 -- and every one of them was silent.
+#
+# On AVR the bus pins are fixed in hardware (ATmega328P: UART PD1/PD0, I2C PC5/PC4,
+# SPI PB5/PB3/PB4); the pin arguments are accepted for API compatibility.
 
 from pymcu.chips import __CHIP__
-from pymcu.types import uint8, uint16, uint32, inline, warning
+from pymcu.exceptions import CompileError
+from pymcu.types import uint8, uint16, uint32, int16, inline, const
 from pymcu.hal.uart import UART as _UART
 if __CHIP__.arch == "avr":
     from pymcu.hal.i2c import I2C as _I2C
     from pymcu.hal.spi import SPI as _SPI
 
 
+# The parities, at module level. CircuitPython keeps them nested inside UART and spells them
+# busio.UART.Parity.ODD, which is the shape PyMCU#319 cannot read: a constant two class names
+# deep is refused where one deep works. UART.Parity below is the CircuitPython shape and will
+# start working when that lands; busio.Parity is the spelling that compiles today.
+#
+# The numbers are the HAL's -- 0 none, 1 even, 2 odd on every architecture -- so a parity
+# passed through needs no translation table. "No parity" is spelled None, as in CircuitPython.
+class Parity:
+    EVEN = 1
+    ODD  = 2
+
+
 class UART:
     class Parity:
-        ODD  = 0
         EVEN = 1
+        ODD  = 2
 
     @inline
     def __init__(self, tx=None, rx=None, *, baudrate: uint16 = 9600, bits: uint8 = 8,
-                 parity=None, stop: uint8 = 1, timeout: uint16 = 1,
-                 receiver_buffer_size: uint16 = 64):
-        # tx/rx accepted for API compatibility; hardware pins are fixed on AVR
+                 parity=None, stop: uint8 = 1, timeout: uint16 = 1000,
+                 receiver_buffer_size: const[uint16] = 64):
+        # tx/rx accepted for API compatibility; the hardware pins are fixed on AVR
         # (ATmega328P PD1=TX, PD0=RX) and configured inside _UART.__init__.
-        self._hw       = _UART(baudrate)
+        #
+        # bits, parity and stop reach the hardware now. A frame the part cannot send is
+        # refused inside the HAL, where the register is, with the value named.
+        #
+        # parity=None is the CircuitPython spelling for no parity, and the HAL numbers no
+        # parity 0. The translation is a match and not a local because the HAL needs the
+        # value at compile time, and an annotated local is materialised and stops being one.
+        match parity:
+            case None:
+                self._hw = _UART(baudrate, bits, 0, stop)
+            case _:
+                self._hw = _UART(baudrate, bits, parity, stop)
         self._baudrate = baudrate
         self._timeout  = timeout
+
+        # CircuitPython's UART buffers received bytes, which is what makes in_waiting a
+        # count and not a flag. The HAL has the ring and the interrupt that fills it; asking
+        # for a buffer turns them on, and asking for one byte leaves the UART polled on the
+        # hardware's own register.
+        # A size bigger than the ring is refused inside the HAL, where the ring is: the
+        # layer does not know how big it is and must not have to.
+        self._buffered = 0
+        if receiver_buffer_size > 1:
+            self._buffered = 1
+            self._hw.start_buffered_rx(receiver_buffer_size)
 
     @property
     def baudrate(self) -> uint16:
@@ -66,19 +107,23 @@ class UART:
 
     @property
     def in_waiting(self) -> uint8:
-        """Number of bytes available to read.
+        """How many bytes are waiting to be read.
 
-        On a polled hardware UART this reflects the RXC flag (0 or 1); for a
-        true byte count, enable the interrupt-driven RX path in the HAL.
+        A real count when the UART is buffered. Unbuffered
+        (`receiver_buffer_size=1`) it is 0 or 1, because the hardware holds one byte and has
+        no count to give.
         """
+        if self._buffered == 1:
+            return self._hw.rx_count()
         return self._hw.available()
 
     @property
     def timeout(self) -> uint16:
-        """Read timeout (accepted for API compatibility).
+        """Read timeout in milliseconds.
 
-        The bare-metal blocking read does not currently honour a timeout; the
-        value is stored so code that gets/sets it compiles unchanged.
+        CircuitPython spells it in seconds as a float; this layer has no float in a
+        parameter default, so it is milliseconds here. `readinto` honours it: it used to
+        block for ever, whatever this said.
         """
         return self._timeout
 
@@ -90,8 +135,8 @@ class UART:
     def write(self, buf) -> uint16:
         """Write the bytes in `buf` to the bus; return the number written.
 
-        `buf` may be a bytes/bytearray literal (unrolled at compile time) or a
-        fixed-size uint8 array (loop). Matches CircuitPython UART.write(buf).
+        `buf` may be a bytes/bytearray literal (unrolled at compile time) or a fixed-size
+        uint8 array (loop). Matches CircuitPython UART.write(buf).
         """
         n: uint16 = 0
         for b in buf:
@@ -101,26 +146,50 @@ class UART:
 
     @inline
     def readinto(self, buf) -> uint16:
-        """Read bytes into `buf` until it is full; return the number read."""
+        """Read bytes into `buf` until it is full or the timeout passes.
+
+        Returns how many bytes were actually read, which is what CircuitPython returns and
+        what tells a caller the read was short. It used to fill the buffer by blocking on
+        each byte for ever, so a sensor that stopped answering hung the program.
+        """
         n: uint16 = 0
         for i, _ in enumerate(buf):
-            buf[i] = self._hw.read()
+            b: int16 = -1
+            if self._buffered == 1:
+                b = self._hw.rx_read_timeout(self._timeout)
+            else:
+                b = self._hw.read_timeout(self._timeout)
+            if b < 0:
+                return n
+            buf[i] = b & 0xFF
             n = n + 1
         return n
 
-    @warning("busio.UART.read() cannot return a bytes object on bare metal (no heap); it is a no-op. Use readinto(buf) with a pre-allocated bytearray instead.")
     def read(self, nbytes=None):
-        pass
+        """Not available: there is no heap to return a bytes object from."""
+        raise CompileError(
+            "busio.UART.read() returns a bytes object, and there is no heap here to build "
+            "one on. Read into a buffer you own instead: allocate `buf = bytearray(n)` once "
+            "and call `uart.readinto(buf)`, which returns how many bytes it got. It used to "
+            "compile to nothing and hand back a value that was never read.")
 
-    @warning("busio.UART.readline() cannot return a bytes object on bare metal (no heap); it is a no-op. Use readinto(buf) instead.")
     def readline(self):
-        pass
+        """Not available: there is no heap to return a bytes object from."""
+        raise CompileError(
+            "busio.UART.readline() returns a bytes object, and there is no heap here to "
+            "build one on. Read into a buffer you own a byte at a time and stop at the "
+            "newline yourself, or use pymcu.hal.uart's read_line(buf, max_len), which fills "
+            "a buffer you allocated and returns the length. It used to compile to nothing.")
 
     @inline
     def reset_input_buffer(self):
         """Discard any unread bytes in the receive buffer."""
-        while self._hw.available():
-            self._hw.read_nb()
+        if self._buffered == 1:
+            while self._hw.rx_count() != 0:
+                self._hw.rx_read()
+        else:
+            while self._hw.available():
+                self._hw.read_nb()
 
     @inline
     def deinit(self):
@@ -146,8 +215,17 @@ class I2C:
 
     @inline
     def __init__(self, scl, sda, *, frequency: uint32 = 100000, timeout: uint8 = 255):
-        self._bus = _I2C()
+        # frequency reaches the bit-rate register now. A rate the hardware cannot clock is
+        # refused inside the HAL with the reachable range named; it used to be dropped here
+        # and the bus ran at 100 kHz whatever the program asked for.
+        self._bus = _I2C(0, 0, frequency)
         self._locked = 0
+
+    @property
+    def frequency(self) -> uint32:
+        """The SCL rate the bus actually clocks, which is not always the one asked for: the
+        bit-rate register is an integer."""
+        return self._bus.frequency()
 
     @inline
     def try_lock(self) -> uint8:
@@ -167,66 +245,78 @@ class I2C:
         """Return 1 if a device acknowledges at `address`, else 0."""
         return self._bus.ping(address)
 
-    @warning("busio.I2C.scan() cannot return a list on bare metal (no heap); it is a no-op. Use probe(address) in a loop over the address range instead.")
     def scan(self):
-        pass
+        """Not available: there is no heap to return a list from."""
+        raise CompileError(
+            "busio.I2C.scan() returns a list of the addresses that answered, and there is "
+            "no heap here to build one on. Ask about one address at a time instead: "
+            "`for a in range(8, 120): if i2c.probe(a): print(hex(a))` walks the same range "
+            "and prints the same addresses. It used to compile to nothing, so the scan "
+            "found nothing and said nothing.")
 
     @inline
-    def writeto(self, address: uint8, buffer, start: uint8 = 0, end: uint8 = 0):
-        """Write the bytes in `buffer` to the device at `address`.
+    def writeto(self, address: uint8, buffer, start: uint16 = 0, end: uint16 = 65535):
+        """Write `buffer[start:end]` to the device at `address`.
 
-        `buffer` may be a bytes/bytearray literal (unrolled) or a fixed-size
-        uint8 array (loop). start/end are accepted for API compatibility; the
-        whole buffer is sent.
+        start and end slice the buffer, as they do in CircuitPython. They used to be
+        accepted and the whole buffer sent, so a program writing one register out of a
+        packet wrote the packet. At their defaults the bounds fold away and this is the
+        same loop it always was.
         """
         self._bus.start()
         self._bus.write(address << 1)        # SLA+W
-        for b in buffer:
-            self._bus.write(b)
+        for i, b in enumerate(buffer):
+            if i >= start and i < end:
+                self._bus.write(b)
         self._bus.stop()
 
     @inline
-    def readfrom_into(self, address: uint8, buffer, start: uint8 = 0, end: uint8 = 0):
-        """Read len(buffer) bytes from the device at `address` into `buffer`.
+    def readfrom_into(self, address: uint8, buffer, start: uint16 = 0, end: uint16 = 65535):
+        """Read into `buffer[start:end]` from the device at `address`.
 
-        `buffer` must be a mutable fixed-size array. ACK is sent for every byte
-        except the last, which is NACK'd, per the I2C protocol.
+        ACK is sent for every byte except the last, which is NACK'd, per the I2C protocol.
         """
-        n: uint8 = 0
-        for _ in buffer:
-            n = n + 1
+        n: uint16 = 0
+        for i, _ in enumerate(buffer):
+            if i >= start and i < end:
+                n = n + 1
         self._bus.start()
         self._bus.write((address << 1) | 1)  # SLA+R
+        k: uint16 = 0
         for i, _ in enumerate(buffer):
-            if i < n - 1:
-                buffer[i] = self._bus.read_ack()
-            else:
-                buffer[i] = self._bus.read_nack()
+            if i >= start and i < end:
+                if k < n - 1:
+                    buffer[i] = self._bus.read_ack()
+                else:
+                    buffer[i] = self._bus.read_nack()
+                k = k + 1
         self._bus.stop()
 
     @inline
     def writeto_then_readfrom(self, address: uint8, out_buffer, in_buffer,
-                              out_start: uint8 = 0, out_end: uint8 = 0,
-                              in_start: uint8 = 0, in_end: uint8 = 0):
-        """Write `out_buffer`, then (repeated START) read into `in_buffer`.
-
-        `out_buffer` may be a literal (e.g. a register address) or an array;
-        `in_buffer` must be a mutable fixed-size array to receive the data.
-        """
-        in_n: uint8 = 0
-        for _ in in_buffer:
-            in_n = in_n + 1
+                              out_start: uint16 = 0, out_end: uint16 = 65535,
+                              in_start: uint16 = 0, in_end: uint16 = 65535):
+        """Write `out_buffer[out_start:out_end]`, then (repeated START) read into
+        `in_buffer[in_start:in_end]`."""
+        in_n: uint16 = 0
+        for i, _ in enumerate(in_buffer):
+            if i >= in_start and i < in_end:
+                in_n = in_n + 1
         self._bus.start()
         self._bus.write(address << 1)        # SLA+W
-        for b in out_buffer:
-            self._bus.write(b)
+        for i, b in enumerate(out_buffer):
+            if i >= out_start and i < out_end:
+                self._bus.write(b)
         self._bus.start()                    # repeated START
         self._bus.write((address << 1) | 1)  # SLA+R
+        k: uint16 = 0
         for i, _ in enumerate(in_buffer):
-            if i < in_n - 1:
-                in_buffer[i] = self._bus.read_ack()
-            else:
-                in_buffer[i] = self._bus.read_nack()
+            if i >= in_start and i < in_end:
+                if k < in_n - 1:
+                    in_buffer[i] = self._bus.read_ack()
+                else:
+                    in_buffer[i] = self._bus.read_nack()
+                k = k + 1
         self._bus.stop()
 
     @inline
@@ -254,7 +344,6 @@ class SPI:
     @inline
     def __init__(self, clock, MOSI=None, MISO=None, half_duplex: uint8 = 0):
         self._bus = _SPI()
-        self._frequency = 100000
 
     @inline
     def try_lock(self) -> uint8:
@@ -269,34 +358,65 @@ class SPI:
     @inline
     def configure(self, baudrate: uint32 = 100000, polarity: uint8 = 0,
                   phase: uint8 = 0, bits: uint8 = 8):
-        """Configure SPI parameters. Accepted for API compatibility; the AVR
-        hardware uses fixed settings, so only `baudrate` is recorded for the
-        frequency property."""
-        self._frequency = baudrate
+        """Program the clock rate, the mode and the frame size.
+
+        It used to record `baudrate` and reprogram nothing, so a display asked for mode 3
+        at 8 MHz ran mode 0 at 4 MHz. polarity and phase are the two bits that name the SPI
+        mode; the HAL refuses anything but 0 or 1 for each.
+        """
+        if bits != 8:
+            raise CompileError(
+                "this SPI bus shifts 8 bits per frame and the hardware has no other frame "
+                "size. Drop the bits argument, or pack the frame you need into whole bytes.")
+        self._bus.configure(baudrate, polarity, phase)
 
     @property
     def frequency(self) -> uint32:
-        """Configured SPI clock frequency in Hz."""
-        return self._frequency
+        """The clock rate the bus actually runs at, which is not always the one asked for:
+        the dividers are powers of two."""
+        return self._bus.frequency()
 
     @inline
-    def write(self, buffer, start: uint16 = 0, end: uint16 = 0):
-        """Write every byte in `buffer` to the bus (discarding read data)."""
-        for b in buffer:
-            self._bus.transfer(b)
+    def write(self, buffer, start: uint16 = 0, end: uint16 = 65535):
+        """Write `buffer[start:end]` to the bus (discarding read data)."""
+        for i, b in enumerate(buffer):
+            if i >= start and i < end:
+                self._bus.transfer(b)
 
     @inline
-    def readinto(self, buffer, start: uint16 = 0, end: uint16 = 0, write_value: uint8 = 0):
-        """Read len(buffer) bytes into `buffer`, sending `write_value` for each."""
+    def readinto(self, buffer, start: uint16 = 0, end: uint16 = 65535, write_value: uint8 = 0):
+        """Read into `buffer[start:end]`, sending `write_value` for each byte."""
         for i, _ in enumerate(buffer):
-            buffer[i] = self._bus.transfer(write_value)
+            if i >= start and i < end:
+                buffer[i] = self._bus.transfer(write_value)
 
     @inline
     def write_readinto(self, out_buffer, in_buffer, out_start: uint16 = 0,
-                       out_end: uint16 = 0, in_start: uint16 = 0, in_end: uint16 = 0):
-        """Full-duplex: write `out_buffer` while reading into `in_buffer`."""
+                       out_end: uint16 = 65535, in_start: uint16 = 0, in_end: uint16 = 65535):
+        """Full-duplex: write `out_buffer` while reading into `in_buffer`.
+
+        The two slices must be the same length, which SPI requires: one byte goes out for
+        every byte that comes in. It used to index `in_buffer` with `out_buffer`'s index and
+        check nothing, so a shorter `in_buffer` was written past its end.
+        """
+        out_n: uint16 = 0
         for i, _ in enumerate(out_buffer):
-            in_buffer[i] = self._bus.transfer(out_buffer[i])
+            if i >= out_start and i < out_end:
+                out_n = out_n + 1
+        in_n: uint16 = 0
+        for i, _ in enumerate(in_buffer):
+            if i >= in_start and i < in_end:
+                in_n = in_n + 1
+        if out_n != in_n:
+            raise CompileError(
+                "the two buffers of a full-duplex SPI transfer must be the same length: one "
+                "byte is clocked in for every byte clocked out, so a shorter read buffer "
+                "would be written past its end and a longer one left part unfilled. Make "
+                "them the same size, or slice them to the same length with the start and "
+                "end arguments.")
+        for i, b in enumerate(out_buffer):
+            if i >= out_start and i < out_end:
+                in_buffer[i - out_start + in_start] = self._bus.transfer(b)
 
     @inline
     def deinit(self):
