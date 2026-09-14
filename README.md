@@ -46,6 +46,7 @@ frequency = 16000000
 | `supervisor` | `ticks_ms/add/diff`, `reload`, `runtime` | ✅ Complete | 2²⁹ ms wrap and signed `ticks_diff`, matching CircuitPython |
 | `microcontroller` | `cpu.*`, `nvm`, `watchdog`, `reset()`, `delay_us()` | ✅ Complete | `len(nvm)` is the part's EEPROM; `watchdog.mode = None` disables it; `uid` is refused rather than eight zeros |
 | `neopixel` | `NeoPixel` | ✅ Yes | Ships in [pymcu-lib-neopixel](https://github.com/PyMCU/pymcu-lib-neopixel), pulled in as a dependency: `import neopixel` is unchanged |
+| `neopixel_write` | `neopixel_write` | ✅ ATmega 48/88/168/328 | The low-level one-wire write the guides call directly. Takes a `DigitalInOut` and a buffer, and does not reorder it: a WS2812 wants green, red, blue. Mask interrupts around it if a timer is running |
 | `alarm` | `TimeAlarm`, `PinAlarm`, `sleep_until_alarms` | ✅ Complete | Up to four alarms at once; the return value is which one fired, because an alarm object cannot come back |
 
 ### Feature Comparison
