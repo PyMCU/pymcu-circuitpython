@@ -42,6 +42,17 @@ class PulseIn:
         return self._cap.count()
 
     @inline
+    def __bool__(self) -> uint8:
+        """True while a pulse is waiting: `len(pulses) > 0`, as CircuitPython spells it.
+
+        adafruit_hcsr04 waits with `while not self._echo:`, not `while not len(self._echo):`
+        -- `bool(pulses)` has to mean the same thing `len(pulses)` does for that idiom to
+        end once a pulse arrives."""
+        if self._cap.count():
+            return 1
+        return 0
+
+    @inline
     def __getitem__(self, index: uint16) -> uint16:
         """The index-th oldest pulse, left in the buffer. Out of range reads as 0."""
         return self._cap.get(index)
@@ -99,7 +110,7 @@ class PulseIn:
         return self
 
     @inline
-    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+    def __exit__(self, *args):
         self.deinit()
 
 
@@ -139,5 +150,5 @@ class PulseOut:
         return self
 
     @inline
-    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+    def __exit__(self, *args):
         self.deinit()
