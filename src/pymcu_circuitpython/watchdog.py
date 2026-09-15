@@ -17,3 +17,10 @@ class WatchDogMode:
     """
     RESET = 1
     RAISE = 2
+
+
+# watchdog.WatchDogTimer is the class of the sole instance at microcontroller.watchdog.
+# The class itself lives in microcontroller.py, next to the instance it backs and the HAL
+# calls its methods make; this just re-exports it under its upstream name, the same way
+# microcontroller.py imports WatchDogMode from here below.
+from microcontroller import WatchDogTimer

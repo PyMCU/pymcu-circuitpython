@@ -241,7 +241,7 @@ nvm = _NVM()
 
 
 
-class _WatchDogTimer:
+class WatchDogTimer:
     """Hardware watchdog (CircuitPython microcontroller.watchdog / WatchDogTimer).
 
     Set .timeout (seconds), then assign .mode = WatchDogMode.RESET to arm the
@@ -315,7 +315,7 @@ class _WatchDogTimer:
 
 
 # CircuitPython exposes the watchdog as microcontroller.watchdog.
-watchdog = _WatchDogTimer()
+watchdog = WatchDogTimer()
 
 
 # ---------------------------------------------------------------------------
