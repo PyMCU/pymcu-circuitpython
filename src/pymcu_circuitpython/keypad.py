@@ -37,31 +37,61 @@
 
 from pymcu.exceptions import CompileError
 from pymcu.types import uint8, uint16, uint32, inline, const
+from supervisor import ticks_ms
 
 
 class Event:
-    """Which key changed, and which way.
+    """Which key changed, which way, and when (CircuitPython keypad.Event).
 
-    CircuitPython's Event is immutable and carries a timestamp as well. This one is a
-    buffer the queue writes into, because `get_into(event)` is the allocation-free half of
-    the upstream API and the only half there is here.
+    CircuitPython's Event is immutable. This one is a buffer the queue writes into,
+    because `get_into(event)` is the allocation-free half of the upstream API and the
+    only half there is here. `key_number`, `pressed` and `timestamp` are writable for
+    that reason; upstream's are read-only.
     """
 
     @inline
     def __init__(self, key_number: uint8 = 0, pressed: uint8 = 0):
-        self.key_number = key_number
-        self.pressed = pressed
+        self._key_number = key_number
+        self._pressed = pressed
+        self._timestamp: uint32 = 0
+
+    @property
+    def key_number(self) -> uint8:
+        """The key number this event reports on."""
+        return self._key_number
+
+    @key_number.setter
+    def key_number(self, value: uint8):
+        self._key_number = value
+
+    @property
+    def pressed(self) -> uint8:
+        """1 if this event is a key-pressed transition."""
+        return self._pressed
+
+    @pressed.setter
+    def pressed(self, value: uint8):
+        self._pressed = value
 
     @property
     def released(self) -> uint8:
         """1 when the key was released rather than pressed."""
-        if self.pressed:
+        if self._pressed:
             return 0
         return 1
 
+    @property
+    def timestamp(self) -> uint32:
+        """supervisor.ticks_ms() at the moment this transition was reported."""
+        return self._timestamp
 
-class _EventQueue:
-    """The changes that have not been read yet.
+    @timestamp.setter
+    def timestamp(self, value: uint32):
+        self._timestamp = value
+
+
+class EventQueue:
+    """The changes that have not been read yet (CircuitPython keypad.EventQueue).
 
     It holds nothing: a key's stored state moves only when its change is reported, so what
     is "in the queue" is exactly the set of keys whose pins disagree with what was last
@@ -105,6 +135,7 @@ class _EventQueue:
                     self._last = self._last & (0xFFFFFFFF - m)
                 event.key_number = k
                 event.pressed = now
+                event.timestamp = ticks_ms()
                 taken = 1
             m = m + m
             k = k + 1
@@ -135,6 +166,13 @@ class _EventQueue:
                 n = n + 1
             m = m + m
         return n
+
+    @inline
+    def __bool__(self) -> uint8:
+        """True while a change is waiting to be read: `len(queue) > 0`, as upstream spells it."""
+        if len(self) > 0:
+            return 1
+        return 0
 
     @inline
     def clear(self):
@@ -188,7 +226,14 @@ class Keys:
                 "a Keys holds up to 32 keys: the state of every one is a bit of a 32-bit "
                 "word, which is what lets the queue keep no events of its own. Split the "
                 "keypad into two Keys, or read the extra pins with digitalio directly.")
-        self.events = _EventQueue(pins, value_when_pressed)
+        # NOT a property returning self._events: a property that hands back a ZCA
+        # instance loses it for further dispatch (`keys.events.get_into(event)` refused
+        # with "its receiver is not a name bound to an object" -- PyMCU#36 territory,
+        # confirmed measured 2026-09-15). A plain instance attribute is the only shape
+        # that keeps `keys.events.get_into(...)` compiling, which is the one thing this
+        # queue is for; matches upstream's own read-only `events` in observable behavior,
+        # just not in `inspect.getattr_static`-visible declaration (tracked #13).
+        self.events = EventQueue(pins, value_when_pressed)
 
     @property
     def key_count(self) -> uint8:

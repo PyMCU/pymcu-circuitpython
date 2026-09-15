@@ -60,29 +60,9 @@ quote = "`keypad.ShiftRegisterKeys` is not implemented either"
 reason = "Reads through a shift-register chip, a different peripheral than the pin-per-key Keys this layer has."
 
 [[deviation]]
-symbol = "keypad.Event.key_number"
-status = "tracked:#13"
-reason = "keypad.Event is a caller-owned mutable buffer here (get_into() writes into it); the real gap is the same one #13 tracks for Keys/KeyMatrix."
-
-[[deviation]]
-symbol = "keypad.Event.pressed"
-status = "tracked:#13"
-reason = "Same as keypad.Event.key_number: a writable field on a mutable buffer, not a property on an immutable Event."
-
-[[deviation]]
-symbol = "keypad.Event.timestamp"
-status = "tracked:#13"
-reason = "Not tracked at all: the queue reports only which key changed, not when, tracked alongside the rest of #13's Event/EventQueue gap."
-
-[[deviation]]
-symbol = "keypad.EventQueue"
-status = "tracked:#13"
-reason = "The layer has a private _EventQueue with a narrower, allocation-free API (get_into only); no public EventQueue type is exported."
-
-[[deviation]]
 symbol = "keypad.Keys.events"
 status = "tracked:#13"
-reason = "keys.events exists at runtime (set in __init__) but is not a class-level property inspect.getattr_static can see; same #13 gap."
+reason = "keys.events is a plain instance attribute, not a class-level property inspect.getattr_static can see. Tried converting it to a real @property: the compiler then refuses keys.events.get_into(event) as \"its receiver is not a name bound to an object\" (a property returning a ZCA instance loses it for further method dispatch), so the plain attribute stays."
 
 # -- board ----------------------------------------------------------------------
 
