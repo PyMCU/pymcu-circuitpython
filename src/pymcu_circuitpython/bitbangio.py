@@ -92,7 +92,7 @@ class I2C:
             "and prints the same addresses.")
 
     @inline
-    def writeto(self, address: uint8, buffer, start: uint16 = 0, end: uint16 = 65535):
+    def writeto(self, address: uint8, buffer, *, start: uint16 = 0, end: uint16 = 65535):
         """Write `buffer[start:end]` to the device at `address`."""
         self._bus.start()
         self._bus.write((address << 1) & 0xFE)   # SLA+W
@@ -102,7 +102,7 @@ class I2C:
         self._bus.stop()
 
     @inline
-    def readfrom_into(self, address: uint8, buffer, start: uint16 = 0, end: uint16 = 65535):
+    def readfrom_into(self, address: uint8, buffer, *, start: uint16 = 0, end: uint16 = 65535):
         """Read into `buffer[start:end]` from the device at `address`.
 
         ACK is sent for every byte except the last, which is NACK'd, per the I2C protocol.
@@ -124,7 +124,7 @@ class I2C:
         self._bus.stop()
 
     @inline
-    def writeto_then_readfrom(self, address: uint8, out_buffer, in_buffer,
+    def writeto_then_readfrom(self, address: uint8, out_buffer, in_buffer, *,
                               out_start: uint16 = 0, out_end: uint16 = 65535,
                               in_start: uint16 = 0, in_end: uint16 = 65535):
         """Write `out_buffer`, then (repeated START) read into `in_buffer`."""
@@ -160,7 +160,7 @@ class I2C:
         return self
 
     @inline
-    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+    def __exit__(self, *args):
         self.deinit()
 
 
@@ -194,7 +194,7 @@ class SPI:
         pass
 
     @inline
-    def configure(self, baudrate: uint32 = 500000, polarity: uint8 = 0,
+    def configure(self, *, baudrate: uint32 = 100000, polarity: uint8 = 0,
                   phase: uint8 = 0, bits: uint8 = 8):
         """Set the bit rate. Mode and frame size are fixed.
 
@@ -226,21 +226,21 @@ class SPI:
         return uint32(500000 // (500000 // self._baudrate))
 
     @inline
-    def write(self, buffer, start: uint16 = 0, end: uint16 = 65535):
-        """Clock `buffer[start:end]` out, discarding what comes back."""
-        for i, b in enumerate(buffer):
+    def write(self, buf, *, start: uint16 = 0, end: uint16 = 65535):
+        """Clock `buf[start:end]` out, discarding what comes back."""
+        for i, b in enumerate(buf):
             if i >= start and i < end:
                 self._bus.transfer(b)
 
     @inline
-    def readinto(self, buffer, start: uint16 = 0, end: uint16 = 65535, write_value: uint8 = 0):
+    def readinto(self, buffer, *, start: uint16 = 0, end: uint16 = 65535, write_value: uint8 = 0):
         """Read into `buffer[start:end]`, sending `write_value` for each byte."""
         for i, _ in enumerate(buffer):
             if i >= start and i < end:
                 buffer[i] = self._bus.transfer(write_value)
 
     @inline
-    def write_readinto(self, out_buffer, in_buffer, out_start: uint16 = 0,
+    def write_readinto(self, out_buffer, in_buffer, *, out_start: uint16 = 0,
                        out_end: uint16 = 65535, in_start: uint16 = 0, in_end: uint16 = 65535):
         """Full duplex: the two slices must be the same length, which SPI requires."""
         out_n: uint16 = 0
@@ -271,5 +271,5 @@ class SPI:
         return self
 
     @inline
-    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+    def __exit__(self, *args):
         self.deinit()
