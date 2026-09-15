@@ -1,14 +1,302 @@
+# Each [[deviation]] is one symbol the parity suite (tests/parity/) does not require to
+# match circuitpython-stubs. `status` says why it is allowed to differ:
+#   - "documented": a design decision this repo's own docs explain. `quote` must be an
+#     exact substring of README.md or docs/ (whitespace-normalized) -- the decision has to
+#     actually be written down, not just asserted here.
+#   - "tracked:#N": a real gap, not a decision -- filed as issue #N in
+#     PyMCU/pymcu-circuitpython. No `quote` is required: there is no design rationale to
+#     quote, only an issue to point at. `reason` names the issue.
+
 [[deviation]]
 symbol = "keypad.Keys.__init__"
+status = "documented"
 quote = "`keypad.Keys` takes a list of `digitalio.DigitalInOut`, not a list of pin names."
 reason = "The constructor deliberately accepts preconfigured DigitalInOut instances instead of pins."
 
 [[deviation]]
 symbol = "keypad.KeyMatrix"
+status = "documented"
 quote = "`rotaryio` and `keypad.KeyMatrix` are not implemented yet."
 reason = "KeyMatrix is documented as not implemented."
 
 [[deviation]]
 symbol = "pulseio.PulseOut.send"
+status = "documented"
 quote = "`pulseio.PulseOut.send(pulses, count)` takes the count, because a module-level array loses its length when it crosses a parameter."
 reason = "The layer requires an explicit count where CircuitPython derives the pulse count."
+
+# -- alarm ------------------------------------------------------------------
+
+[[deviation]]
+symbol = "alarm.SleepMemory"
+status = "documented"
+quote = "there is no separate always-on RAM region to back a `SleepMemory`"
+reason = "No true deep sleep to persist memory across; the alarm functions block in place instead of restarting."
+
+[[deviation]]
+symbol = "alarm.sleep_memory"
+status = "documented"
+quote = "there is no separate always-on RAM region to back a `SleepMemory`"
+reason = "No true deep sleep to persist memory across; the alarm functions block in place instead of restarting."
+
+[[deviation]]
+symbol = "alarm.exit_and_deep_sleep_until_alarms"
+status = "documented"
+quote = "Up to four alarms at once"
+reason = "Fixed alarm0..alarm3 parameters instead of *alarms: there is no heap for a variable-length argument list."
+
+[[deviation]]
+symbol = "alarm.light_sleep_until_alarms"
+status = "documented"
+quote = "Up to four alarms at once"
+reason = "Fixed alarm0..alarm3 parameters instead of *alarms: there is no heap for a variable-length argument list."
+
+# -- keypad -------------------------------------------------------------------
+
+[[deviation]]
+symbol = "keypad.ShiftRegisterKeys"
+status = "documented"
+quote = "`keypad.ShiftRegisterKeys` is not implemented either"
+reason = "Reads through a shift-register chip, a different peripheral than the pin-per-key Keys this layer has."
+
+# -- watchdog -----------------------------------------------------------------
+
+[[deviation]]
+symbol = "watchdog.WatchDogTimeout"
+status = "documented"
+quote = "because `WatchDogMode.RAISE` itself is refused"
+reason = "WatchDogTimeout is only ever raised by WatchDogMode.RAISE, and RAISE mode is refused at compile time."
+
+# -- supervisor -----------------------------------------------------------------
+
+[[deviation]]
+symbol = "supervisor.RunReason"
+status = "documented"
+quote = "no auto-reload, and no safe-mode fallback runtime to report on"
+reason = "Every boot of a fixed AOT-compiled program is equivalent to CircuitPython's STARTUP; there is no auto-reload or REPL-reload concept to distinguish."
+
+[[deviation]]
+symbol = "supervisor.SafeModeReason"
+status = "documented"
+quote = "no safe-mode fallback runtime to report on"
+reason = "There is no safe-mode fallback interpreter state on this AOT-compiled layer."
+
+[[deviation]]
+symbol = "supervisor.Runtime"
+status = "documented"
+quote = "describe USB enumeration, an on-display status bar, and why CircuitPython's own supervisor"
+reason = "supervisor.runtime already exists as a narrower instance (serial_connected, usb_connected, serial_bytes_available); the full Runtime class adds USB/display/BLE/auto-reload members this chip class has none of."
+
+[[deviation]]
+symbol = "supervisor.StatusBar"
+status = "documented"
+quote = "no USB stack, no display"
+reason = "There is no attached display or REPL status-bar surface to back StatusBar."
+
+[[deviation]]
+symbol = "supervisor.status_bar"
+status = "documented"
+quote = "no USB stack, no display"
+reason = "There is no attached display or REPL status-bar surface to back status_bar."
+
+[[deviation]]
+symbol = "supervisor.set_usb_identification"
+status = "documented"
+quote = "a bare-metal AVR build has no USB stack"
+reason = "No USB device stack to carry a Device Descriptor to override."
+
+[[deviation]]
+symbol = "supervisor.get_previous_traceback"
+status = "documented"
+quote = "PyMCU's exception model carries no message string across a crash"
+reason = "The AVR exception model is a T-flag, not a heap traceback object; there is no message text to persist or return."
+
+[[deviation]]
+symbol = "supervisor.get_setting"
+status = "documented"
+quote = "no filesystem"
+reason = "No /settings.toml filesystem to read a setting from."
+
+[[deviation]]
+symbol = "supervisor.reset_terminal"
+status = "documented"
+quote = "no REPL"
+reason = "There is no REPL serial terminal to resize."
+
+[[deviation]]
+symbol = "supervisor.set_next_code_file"
+status = "documented"
+quote = "no boot-time file search"
+reason = "A PyMCU build compiles one fixed program ahead of time; there is no dynamic next-file selection at boot."
+
+# -- socketpool / wifi ------------------------------------------------------------
+
+[[deviation]]
+symbol = "socketpool.Socket"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.AF_INET"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.AF_INET6"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.EAI_NONAME"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.IPPROTO_ICMP"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.IPPROTO_IP"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.IPPROTO_IPV6"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.IPPROTO_RAW"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.IPPROTO_TCP"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.IPPROTO_UDP"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.IP_MULTICAST_TTL"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.SOCK_DGRAM"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.SOCK_RAW"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.SOCK_STREAM"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.SOL_SOCKET"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.SO_REUSEADDR"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.TCP_NODELAY"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.getaddrinfo"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "socketpool.SocketPool.socket"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "wifi.AuthMode"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "wifi.Monitor"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "wifi.Network"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "wifi.Packet"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "wifi.PowerManagement"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "wifi.Radio"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+[[deviation]]
+symbol = "wifi.ScannedNetworks"
+status = "documented"
+quote = "no radio, network interface, or socket layer"
+reason = "No WiFi radio on this class of AVR part."
+
+# -- sys / time: not a layer gap, a circuitpython-stubs distribution quirk --------
+
+[[deviation]]
+symbol = "sys.__stub__"
+status = "documented"
+quote = "does not ship separate `sys-stubs`/`time-stubs` packages"
+reason = "circuitpython-stubs 10.3.1 ships no sys-stubs package; sys is documented as CPython/typeshed-compatible instead."
+
+[[deviation]]
+symbol = "time.__stub__"
+status = "documented"
+quote = "does not ship separate `sys-stubs`/`time-stubs` packages"
+reason = "circuitpython-stubs 10.3.1 ships no time-stubs package; time is documented as CPython/typeshed-compatible instead."

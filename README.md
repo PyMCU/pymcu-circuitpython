@@ -88,6 +88,47 @@ rather than compiling to something that does nothing.
   supported one.
 - Receive buffers are fixed-size `uint8[N]` arrays rather than `bytearray(N)`.
 
+### Not implemented (no hardware to back them, on this class of chip)
+
+These symbols simply do not exist in the layer, rather than being refused at the point
+they are written: there is no AVR peripheral or runtime concept underneath them.
+
+- `wifi.*` and `socketpool.*`: none of the AVR parts this layer targets has a WiFi radio,
+  so there is no radio, network interface, or socket layer to back `wifi.Radio`,
+  `wifi.Network`, `wifi.Monitor`, `wifi.AuthMode`, `wifi.Packet`, `wifi.PowerManagement`,
+  `wifi.ScannedNetworks`, `socketpool.SocketPool` or `socketpool.Socket`.
+- `supervisor.get_setting` reads `/settings.toml`, `supervisor.reset_terminal` resizes the
+  REPL's serial terminal, and `supervisor.set_next_code_file` chooses which file a dynamic
+  boot search runs next: none of that exists here, because a PyMCU build is one fixed
+  program compiled ahead of time onto one fixed file, with no filesystem, no REPL and no
+  boot-time file search.
+- `supervisor.Runtime`, `supervisor.StatusBar`, `supervisor.status_bar`,
+  `supervisor.set_usb_identification` and `supervisor.RunReason`/`supervisor.SafeModeReason`
+  describe USB enumeration, an on-display status bar, and why CircuitPython's own supervisor
+  started or fell back to safe mode; a bare-metal AVR build has no USB stack, no display, no
+  auto-reload, and no safe-mode fallback runtime to report on.
+- `supervisor.get_previous_traceback` reads back the previous run's exception text; PyMCU's
+  exception model carries no message string across a crash for anything to return here.
+- `alarm.SleepMemory`/`alarm.sleep_memory` persist state across a real deep sleep that powers
+  the chip down and restarts the interpreter. This part's alarm functions do not do that
+  (see the `alarm` row above: they block in place rather than actually sleeping), so there
+  is no separate always-on RAM region to back a `SleepMemory`.
+- `keypad.ShiftRegisterKeys` is not implemented either: it reads a key matrix through a
+  shift-register chip, a different peripheral than the pin-per-key `keypad.Keys` this layer
+  has.
+- `watchdog.WatchDogTimeout`, the exception `WatchDogMode.RAISE` expiry raises, is not
+  implemented either, because `WatchDogMode.RAISE` itself is refused (see `watchdog.py`):
+  this HAL only programs the watchdog's reset behaviour, not the interrupt-and-continue
+  behaviour `RAISE` needs.
+
+### API parity testing
+
+`tests/parity/` checks this layer's public API against the official `circuitpython-stubs`
+package. That package does not ship separate `sys-stubs`/`time-stubs` packages: CircuitPython
+documents both modules as compatible with the equivalent CPython/typeshed modules rather than
+redocumenting them, so this repository's own module docs (above) are the parity reference for
+`sys` and `time` instead of a stub file.
+
 ## Quick Start
 
 ### Blink Example
