@@ -7,28 +7,38 @@ Totals from the first recorded run: 29 build, 20 refused.
 
 ## Refused Today
 
-| Program | Diagnostic |
-| --- | --- |
-| 06_i2c_scan.py | list comprehension is only supported where it fills a fixed array whose length is a compile-time constant |
-| 08_spi_write.py | bytearray() is a Python builtin that PyMCU does not provide |
-| 10_uart_echo_read.py | busio.UART.read() returns a bytes object |
-| 15_keypad_keys.py | unknown keyword argument 'pull' in call to constructor of 'Keys' |
-| 17_watchdog.py | call to undefined function 'w_feed' |
-| 18_alarm_time.py | name 'alarm0' is not defined |
-| 24_i2c_register_read.py | bytearray() is a Python builtin that PyMCU does not provide |
-| 25_bitbang_i2c.py | bytearray() is a Python builtin that PyMCU does not provide |
-| 26_bitbang_spi.py | bytearray() is a Python builtin that PyMCU does not provide |
-| 28_pulseout_ir.py | Bit index must be constant for reading |
-| 32_pwm_variable_frequency.py | a PWM running at an exact frequency cannot be retuned at run time |
-| 33_alarm_multiple.py | name 'alarm0' is not defined |
-| 36_analogout_refuse.py | this chip has no digital-to-analog converter |
-| 37_uart_readline_refuse.py | busio.UART.readline() returns a bytes object |
-| 38_keypad_event_get_refuse.py | unknown keyword argument 'pull' in call to constructor of 'Keys' |
-| 39_rotary_diff_ports_refuse.py | an encoder's two lines have to be on the same port |
-| 40_pulseout_wrong_pin_refuse.py | a pulse train's carrier comes out of OC2B |
-| 45_instance_class_attr.py | object has no attribute 'ADDRESS' |
-| 46_descriptor_get.py | object has no attribute 'whoami' |
-| 48_class_field_dict_lists.py | array index must be an integer |
+Triage (2026-09-14): each refusal was reduced to a minimal program and classified as a
+documented limit (cited), a layer gap/bug (issue in `pymcu-circuitpython`), or a compiler
+gap/bug (issue in `PyMCU`). 13 distinct causes across the 20 programs; 6 new issues opened,
+5 already tracked by an existing issue.
+
+| Program | Diagnostic | Triage |
+| --- | --- | --- |
+| 06_i2c_scan.py | list comprehension is only supported where it fills a fixed array whose length is a compile-time constant | documented: `LANGUAGE_ROADMAP.md:58` (list comprehension needs a constant iterable) |
+| 08_spi_write.py | bytearray() is a Python builtin that PyMCU does not provide | compiler bug: [PyMCU#380](https://github.com/PyMCU/PyMCU/issues/380) (new) |
+| 10_uart_echo_read.py | busio.UART.read() returns a bytes object | documented: `README.md:37,73-75` (`read()`/`readline()`/`scan()` refused, use `readinto`/`probe`) |
+| 15_keypad_keys.py | unknown keyword argument 'pull' in call to constructor of 'Keys' | documented: `README.md:42,82` + [pymcu-circuitpython#13](https://github.com/PyMCU/pymcu-circuitpython/issues/13) (`Keys` takes `DigitalInOut`, not pin names) |
+| 17_watchdog.py | call to undefined function 'w_feed' | compiler bug: [PyMCU#259](https://github.com/PyMCU/PyMCU/issues/259) (existing, singleton-bound-to-local collapses to an integer) |
+| 18_alarm_time.py | name 'alarm0' is not defined | compiler bug: [PyMCU#381](https://github.com/PyMCU/PyMCU/issues/381) (new) |
+| 24_i2c_register_read.py | bytearray() is a Python builtin that PyMCU does not provide | compiler bug: [PyMCU#380](https://github.com/PyMCU/PyMCU/issues/380) (new) |
+| 25_bitbang_i2c.py | bytearray() is a Python builtin that PyMCU does not provide | compiler bug: [PyMCU#380](https://github.com/PyMCU/PyMCU/issues/380) (new) |
+| 26_bitbang_spi.py | bytearray() is a Python builtin that PyMCU does not provide | compiler bug: [PyMCU#380](https://github.com/PyMCU/PyMCU/issues/380) (new) |
+| 28_pulseout_ir.py | Bit index must be constant for reading | compiler bug: [PyMCU#258](https://github.com/PyMCU/PyMCU/issues/258) (existing; same module-array-through-@inline defect, subscript path gives an even more misleading message than the for-loop path already filed) |
+| 32_pwm_variable_frequency.py | a PWM running at an exact frequency cannot be retuned at run time | layer gap: [pymcu-circuitpython#31](https://github.com/PyMCU/pymcu-circuitpython/issues/31) (new) |
+| 33_alarm_multiple.py | name 'alarm0' is not defined | compiler bug: [PyMCU#381](https://github.com/PyMCU/PyMCU/issues/381) (new) |
+| 36_analogout_refuse.py | this chip has no digital-to-analog converter | documented: `README.md:36,76` (`AnalogOut` needs a DAC, none on AVR) |
+| 37_uart_readline_refuse.py | busio.UART.readline() returns a bytes object | documented: `README.md:37,73-75` |
+| 38_keypad_event_get_refuse.py | unknown keyword argument 'pull' in call to constructor of 'Keys' | documented: `README.md:42,82` + [pymcu-circuitpython#13](https://github.com/PyMCU/pymcu-circuitpython/issues/13) |
+| 39_rotary_diff_ports_refuse.py | an encoder's two lines have to be on the same port | layer gap (docs): [pymcu-circuitpython#32](https://github.com/PyMCU/pymcu-circuitpython/issues/32) (new; constraint is deliberate and correct, just undocumented) |
+| 40_pulseout_wrong_pin_refuse.py | a pulse train's carrier comes out of OC2B | layer gap (docs): [pymcu-circuitpython#33](https://github.com/PyMCU/pymcu-circuitpython/issues/33) (new; constraint is deliberate and correct, just undocumented) |
+| 45_instance_class_attr.py | object has no attribute 'ADDRESS' | compiler bug: [PyMCU#268](https://github.com/PyMCU/PyMCU/issues/268) (existing, class-level attribute invisible on instance) |
+| 46_descriptor_get.py | object has no attribute 'whoami' | compiler bug: [PyMCU#268](https://github.com/PyMCU/PyMCU/issues/268) + [PyMCU#360](https://github.com/PyMCU/PyMCU/issues/360) (existing; #268 is the prerequisite, #360 the descriptor rewrite on top) |
+| 48_class_field_dict_lists.py | array index must be an integer | compiler bug: [PyMCU#382](https://github.com/PyMCU/PyMCU/issues/382) (new; distinct from #268 -- reproduces through the class name too, a closed dict literal loses its identity as a class attribute) |
+
+None of the 20 are "wheel lag" from `**kwargs` / `except X as e` / `Optional[X]` / tuple
+print / keyword-only defaults: none of the refusals above name those constructs, and all
+five already build in this corpus (`41_kwargs_base_class.py`, `42_except_as_e_args.py`,
+`43_optional_annotation_none.py`, `47_print_tuple.py`).
 
 ## Five Largest
 
