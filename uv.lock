@@ -3,6 +3,53 @@ revision = 3
 requires-python = ">=3.11"
 
 [[package]]
+name = "circuitpython-stubs"
+version = "10.3.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e1/69/32bbffcc7d1156572c9d9e5240dfdc1230a90e96dc27302ba7ec1f8afe61/circuitpython_stubs-10.3.1.tar.gz", hash = "sha256:8942d496d3c828f542163f164592b8890a96a96c411ee12ccd6200bbc3e0f6d9", size = 414074, upload-time = "2026-09-14T20:08:48.045Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/ed/62b6b080bd73a45843be5007c2308e617cce45efdfa3d111799d3c6863de/circuitpython_stubs-10.3.1-py3-none-any.whl", hash = "sha256:10e628e3d3ff58101e03a9051f384a2e3fc5b44a0f115bc4d50e0f27a03c6295", size = 1147041, upload-time = "2026-09-14T20:08:46.412Z" },
+]
+
+[[package]]
 name = "pymcu-circuitpython"
-version = "0.1.0a1"
+version = "0.1.0a2"
 source = { editable = "." }
+dependencies = [
+    { name = "pymcu-lib-neopixel" },
+    { name = "pymcu-stdlib" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "circuitpython-stubs" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pymcu-lib-neopixel", specifier = ">=0.1.0" },
+    { name = "pymcu-stdlib", specifier = ">=0.1.0a10" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "circuitpython-stubs", specifier = ">=10.3.1" }]
+
+[[package]]
+name = "pymcu-lib-neopixel"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pymcu-stdlib" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bf/e5/897eb26b31eaea704ae8e81b66ae054cd188ccc9ec8aed28cff82e8b748b/pymcu_lib_neopixel-0.2.0.tar.gz", hash = "sha256:27915ca58e64a7933034365e6b661da8a7852316e5731fcd670efacbfdb84ee4", size = 28734, upload-time = "2026-08-17T06:54:50.755Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1a/b7/373c66de201936dfa6565d1995698e233a48a66ce776a5910cdcf3b9e9de/pymcu_lib_neopixel-0.2.0-py3-none-any.whl", hash = "sha256:83229585d8e8bc56be06b5d11349102453c49f42146e1a22ab675b44956e0d1e", size = 12395, upload-time = "2026-08-17T06:54:49.551Z" },
+]
+
+[[package]]
+name = "pymcu-stdlib"
+version = "0.1.0a10"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/12/90/6461a867118199c4b774ca554009d9d75a1cf465a5b646b0109ad8fbfb25/pymcu_stdlib-0.1.0a10-py3-none-any.whl", hash = "sha256:82d3bdc309dfd5ccde7037bd816e7248341107ecb4509da831c75870febcc26c", size = 242246, upload-time = "2026-08-18T09:13:57.847Z" },
+]

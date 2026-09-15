@@ -385,6 +385,7 @@ def _install_hal_mocks() -> None:
     _reg("spi",      SPI=_MockSPI)
     _reg("i2c",      I2C=_MockI2C)
     _reg("watchdog", Watchdog=MagicMock)
+    _reg("wifi",     CYW43=MagicMock)
     # pymcu.hal.ws2812: the one-wire pixel emitter. The mock records what reached the
     # wire and in which order, which is the only thing about it a layer test can check --
     # the bit times are cycles, and those are measured in the emulator, not here

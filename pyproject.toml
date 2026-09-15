@@ -16,6 +16,11 @@ requires-python = ">=3.11"
 # existing projects keep working after an upgrade without changing a line.
 dependencies = ["pymcu-stdlib>=0.1.0a10", "pymcu-lib-neopixel>=0.1.0"]
 
+[dependency-groups]
+dev = [
+    "circuitpython-stubs>=10.3.1",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/pymcu_circuitpython"]
 

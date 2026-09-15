@@ -1,0 +1,14 @@
+[[deviation]]
+symbol = "keypad.Keys.__init__"
+quote = "`keypad.Keys` takes a list of `digitalio.DigitalInOut`, not a list of pin names."
+reason = "The constructor deliberately accepts preconfigured DigitalInOut instances instead of pins."
+
+[[deviation]]
+symbol = "keypad.KeyMatrix"
+quote = "`rotaryio` and `keypad.KeyMatrix` are not implemented yet."
+reason = "KeyMatrix is documented as not implemented."
+
+[[deviation]]
+symbol = "pulseio.PulseOut.send"
+quote = "`pulseio.PulseOut.send(pulses, count)` takes the count, because a module-level array loses its length when it crosses a parameter."
+reason = "The layer requires an explicit count where CircuitPython derives the pulse count."
