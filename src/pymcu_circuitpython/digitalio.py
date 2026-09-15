@@ -133,7 +133,7 @@ class DigitalInOut:
     # ------------------------------------------------------------------
 
     @inline
-    def switch_to_output(self, value: uint8 = 0, drive_mode: uint8 = DriveMode.PUSH_PULL):
+    def switch_to_output(self, value: uint8 = False, drive_mode: uint8 = DriveMode.PUSH_PULL):
         """Configure pin as output with optional initial value and drive mode."""
         self._direction  = Direction.OUTPUT
         self._drive_mode = drive_mode
