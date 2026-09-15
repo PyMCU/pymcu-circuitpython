@@ -84,18 +84,6 @@ symbol = "keypad.Keys.events"
 status = "tracked:#13"
 reason = "keys.events exists at runtime (set in __init__) but is not a class-level property inspect.getattr_static can see; same #13 gap."
 
-# -- microcontroller ------------------------------------------------------------
-
-[[deviation]]
-symbol = "microcontroller.RunMode"
-status = "tracked:#34"
-reason = "Not implemented; filed as PyMCU/pymcu-circuitpython#34."
-
-[[deviation]]
-symbol = "microcontroller.on_next_reset"
-status = "tracked:#34"
-reason = "Not implemented; filed as PyMCU/pymcu-circuitpython#34."
-
 # -- board ----------------------------------------------------------------------
 
 [[deviation]]

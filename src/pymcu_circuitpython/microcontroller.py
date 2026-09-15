@@ -36,6 +36,23 @@ class ResetReason:
     RESCUE_DEBUG     = 7
 
 
+class RunMode:
+    """Run state of the microcontroller (CircuitPython microcontroller.RunMode).
+
+    Only NORMAL is reachable here. SAFE_MODE names a fallback interpreter that
+    keeps a USB filesystem writeable while user code does not run, UF2 and
+    BOOTLOADER name USB bootloaders; none of the three exists on an
+    AOT-compiled AVR build with no USB stack. All four members are still
+    defined, so `isinstance`-free code that only compares against them keeps
+    compiling -- on_next_reset() is where passing one of the other three is
+    refused.
+    """
+    NORMAL     = 0
+    SAFE_MODE  = 1
+    UF2        = 2
+    BOOTLOADER = 3
+
+
 class Processor:
     """Microcontroller CPU information (CircuitPython microcontroller.Processor)."""
 
@@ -173,6 +190,40 @@ def delay_us(delay: uint32):
     """Busy-wait for the given number of microseconds (CircuitPython parity)."""
     from pymcu.time import delay_us as _delay_us
     _delay_us(delay)
+
+
+@inline
+def on_next_reset(run_mode: uint8):
+    """Configure the run mode used the next time the microcontroller resets.
+
+    Only RunMode.NORMAL is accepted. RunMode.SAFE_MODE and RunMode.UF2 name a
+    fallback interpreter and a USB bootloader that this AOT-compiled AVR
+    target does not have, so passing either is refused where it is written
+    rather than silently doing nothing. A normal reset already boots straight
+    into the one program this build is, so NORMAL is a no-op.
+    """
+    match run_mode:
+        case RunMode.NORMAL:
+            pass
+        case RunMode.SAFE_MODE:
+            raise CompileError(
+                "microcontroller.on_next_reset(RunMode.SAFE_MODE) is refused: SAFE_MODE "
+                "names a fallback interpreter that keeps a USB filesystem writeable while "
+                "user code does not run, and this AOT-compiled AVR build has neither an "
+                "interpreter nor a USB stack to fall back to. Use RunMode.NORMAL.")
+        case RunMode.UF2:
+            raise CompileError(
+                "microcontroller.on_next_reset(RunMode.UF2) is refused: UF2 names a USB "
+                "bootloader this AVR build does not have. Use RunMode.NORMAL.")
+        case RunMode.BOOTLOADER:
+            raise CompileError(
+                "microcontroller.on_next_reset(RunMode.BOOTLOADER) is refused: BOOTLOADER "
+                "names the default USB bootloader this AVR build does not have. Use "
+                "RunMode.NORMAL.")
+        case _:
+            raise CompileError(
+                "microcontroller.on_next_reset() takes a microcontroller.RunMode value "
+                "(NORMAL, SAFE_MODE, UF2 or BOOTLOADER).")
 
 
 class Pin:
