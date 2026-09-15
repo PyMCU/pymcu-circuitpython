@@ -1,0 +1,29 @@
+[project]
+name = "pymcu-circuitpython-corpus-case"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "pymcu-stdlib>=0.1.0a5",
+    "pymcu-compiler[avr]>=0.1.0a9",
+    "pymcu-avr>=0.1.0a9",
+    "pymcu-circuitpython>=0.1.0a2",
+]
+
+[tool.uv.sources]
+pymcu-compiler = { path = "/Users/begeistert/PycharmProjects/cp-hcsr04/wheels/pymcu_compiler-0.1.0a10-py3-none-macosx_11_0_arm64.whl" }
+pymcu-avr = { path = "/Users/begeistert/PycharmProjects/cp-hcsr04/wheels/pymcu_avr-0.1.0a9-py3-none-macosx_10_15_universal2.whl" }
+pymcu-stdlib = { path = "/Users/begeistert/Repos/PyMCU/lib", editable = true }
+pymcu-circuitpython = { path = "/Users/begeistert/Repos/worktrees/cp-codex-corpus", editable = true }
+
+[tool.pymcu]
+board = "arduino_uno"
+frequency = 16000000
+sources = "src"
+entry = "main.py"
+stdlib = ["circuitpython"]
+
+[tool.pymcu.toolchain]
+name = "avr"
+
+[tool.pymcu.flash]
+programmer = "avrdude"
