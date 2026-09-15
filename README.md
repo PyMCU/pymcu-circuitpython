@@ -297,6 +297,14 @@ See `examples/` directory for complete projects:
 - `dht-sensor/` - DHT11 temperature/humidity sensor
 - `neopixel/` - Addressable WS2812 strip (`fill`, `pixels[i] = (r, g, b)`, `show`)
 
+## Testing
+
+`tests/parity/` checks this layer's real API surface against `circuitpython-stubs`, symbol by
+symbol, and runs on every push and PR (pure CPython, no compiler needed). `tests/corpus/`
+builds 49 user-style programs with the pinned `pymcu-compiler[avr]` release from PyPI and
+enforces the flash-size baseline in `tests/corpus/sizes.json`; it also runs in CI, in its own
+job. Both are defined in `.github/workflows/ci.yml`.
+
 ## License
 
 MIT License - see LICENSE file for details

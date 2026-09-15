@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  # API parity against circuitpython-stubs: pure CPython, no compiler needed.
+  parity:
+    name: API Parity (CPython)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies (incl. circuitpython-stubs)
+        run: uv sync --group dev
+
+      - name: Run parity suite
+        run: uv run pytest tests/parity -v --tb=short
+
+  # Builds 49 real user-style programs with the pinned pymcu-compiler[avr]
+  # release from PyPI and checks the flash size gate in tests/corpus/sizes.json.
+  corpus:
+    name: Corpus (compiled programs)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Pinned versions, not this branch's source: the compiler and its AVR
+      # backend come from PyPI. tests/corpus/test_corpus.py sets PYTHONPATH
+      # to this repo's src/ itself when it shells out to `pymcu build`, so
+      # pymcu-circuitpython does not also need to be pip-installed here.
+      - name: Install pinned compiler + AVR backend
+        run: |
+          uv venv .venv
+          uv pip install --python .venv pytest "pymcu-compiler[avr]"
+
+      - name: Run corpus suite
+        env:
+          PYMCU_BIN: ${{ github.workspace }}/.venv/bin/pymcu
+        run: .venv/bin/python -m pytest tests/corpus -v --tb=short
