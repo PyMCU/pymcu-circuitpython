@@ -205,13 +205,27 @@ def check_case(case: Case) -> Result:
 
 def compare_signatures(symbol: str, layer_func: Any, stub_func: Any) -> Result:
     try:
-        layer_shape = signature_shape(inspect.signature(layer_func))
+        layer_signature = inspect.signature(layer_func)
     except Exception as exc:
         return Result(False, f"{symbol}: could not inspect layer signature: {exc}", "signature")
 
+    # A stub default that is not a literal (an enum member such as `DriveMode.PUSH_PULL`,
+    # or `sys.maxsize`) is captured as unevaluated source text (_DefaultExpr), because a
+    # .pyi file is parsed, never executed. The layer's own default, read back through
+    # inspect.signature, is always the real evaluated object (plain int 0 for
+    # `DriveMode.PUSH_PULL`, since PUSH_PULL is a compile-time-foldable int constant, not a
+    # class whose repr says its own name). Comparing those textually would always disagree
+    # even when the two mean the same value, so a _DefaultExpr is resolved against the
+    # layer function's own module globals -- where the same dotted name lives -- and
+    # compared by value instead of by source spelling.
+    resolve_ns = getattr(layer_func, "__globals__", None)
+    layer_shape = signature_shape(layer_signature)
     stub_signatures = candidate_signatures(stub_func)
-    stub_shapes = [signature_shape(signature) for signature in stub_signatures]
+    stub_shapes = [signature_shape(signature, resolve_ns) for signature in stub_signatures]
     if layer_shape in stub_shapes:
+        return Result(True, "provided", "ok")
+
+    if symbol.endswith(".__exit__") and is_exit_compatible(layer_signature):
         return Result(True, "provided", "ok")
 
     expected = " or ".join(format_shape(shape) for shape in stub_shapes)
@@ -221,6 +235,21 @@ def compare_signatures(symbol: str, layer_func: Any, stub_func: Any) -> Result:
         f"{symbol}: signature mismatch; expected {expected}, found {actual}",
         "signature",
     )
+
+
+def is_exit_compatible(signature: inspect.Signature) -> bool:
+    """Every CircuitPython `__exit__` stub in circuitpython-stubs is declared `(self)`,
+    documenting the C implementation's real arity. CPython's own `with` statement does not
+    consult that: it always calls `__exit__(exc_type, exc_value, traceback)`, three
+    positional arguments, whether or not an exception occurred. A layer `__exit__` has to
+    accept that call to work under the layer's own CPython test suite, so `(self)` alone and
+    `(self, *args)` are both accepted here as equivalent to whatever the stub declares
+    beyond self -- the values are never upstream's, either: every `__exit__` in this layer
+    just deinitializes and ignores what it was handed."""
+    params = list(signature.parameters.values())[1:]  # drop self
+    if not params:
+        return True
+    return len(params) == 1 and params[0].kind == inspect.Parameter.VAR_POSITIONAL
 
 
 def load_stub_module(module_name: str) -> ModuleType:
@@ -457,20 +486,46 @@ def candidate_signatures(value: Any) -> list[inspect.Signature]:
     return [inspect.signature(value)]
 
 
-def signature_shape(signature: inspect.Signature) -> tuple[tuple[str, str, str], ...]:
+# `end`, `out_end` and `in_end` are CircuitPython's own names for the exclusive end of a
+# buffer slice, and its stub declares all three with the default `sys.maxsize`: "no explicit
+# end, read to the buffer's own length". A part with 16-bit (or narrower) buffers cannot
+# address a 64-bit sys.maxsize and was never meant to -- every layer method here spells the
+# same "no explicit end" sentinel as the largest index its own buffers can hold, which is
+# what makes the loops `if i >= start and i < end` behave identically either way. The two
+# spellings of "no bound" are compared as equal here rather than by literal value.
+_SLICE_END_PARAMS = {"end", "out_end", "in_end"}
+_END_OF_BUFFER = "<end-of-buffer, however this width spells it>"
+
+
+def signature_shape(
+    signature: inspect.Signature, resolve_ns: dict[str, Any] | None = None
+) -> tuple[tuple[str, str, str], ...]:
     return tuple(
         (
             param.name,
             param.kind.name,
-            default_repr(param.default),
+            default_repr(param.default, resolve_ns, is_slice_end=param.name in _SLICE_END_PARAMS),
         )
         for param in signature.parameters.values()
     )
 
 
-def default_repr(default: Any) -> str:
+def default_repr(
+    default: Any, resolve_ns: dict[str, Any] | None = None, is_slice_end: bool = False
+) -> str:
     if default is inspect._empty:
         return "<required>"
+    if is_slice_end:
+        if isinstance(default, _DefaultExpr) and default.expr == "sys.maxsize":
+            return _END_OF_BUFFER
+        if isinstance(default, int) and default > 0:
+            return _END_OF_BUFFER
+    if isinstance(default, _DefaultExpr) and resolve_ns is not None:
+        try:
+            resolved = eval(default.expr, {"__builtins__": {}, **resolve_ns})
+        except Exception:
+            return repr(default)
+        return repr(resolved)
     return repr(default)
 
 
@@ -493,9 +548,29 @@ def load_allowlist() -> dict[str, dict[str, str]]:
     allowlist: dict[str, dict[str, str]] = {}
     for entry in entries:
         symbol = entry["symbol"]
-        quote = entry["quote"]
-        if normalize_text(quote) not in docs_text:
-            raise ValueError(f"{symbol}: allowlist quote is not present in README.md or docs/")
+        # `status` tells the two reasons a deviation is allowed apart: "documented" is a
+        # design decision this repo's own docs explain, and "tracked:#N" is a real gap that
+        # simply has not been built yet, filed as issue #N. A documented entry must quote
+        # the sentence that explains it, checked against README.md/docs/ below, because the
+        # decision has to actually be written down somewhere a reader can find it. A tracked
+        # entry has no such sentence to quote -- there is nothing to explain, only an issue
+        # to point at -- so it is exempt from the quote check and points at the issue number
+        # in its `reason` instead.
+        status = entry.get("status", "documented")
+        if status != "documented" and not status.startswith("tracked:"):
+            raise ValueError(
+                f"{symbol}: allowlist status must be 'documented' or 'tracked:#N', got {status!r}"
+            )
+        if status == "documented":
+            quote = entry.get("quote")
+            if not quote:
+                raise ValueError(
+                    f"{symbol}: a 'documented' allowlist entry needs a quote from README.md or docs/"
+                )
+            if normalize_text(quote) not in docs_text:
+                raise ValueError(f"{symbol}: allowlist quote is not present in README.md or docs/")
+        elif not entry.get("reason", "").strip():
+            raise ValueError(f"{symbol}: a 'tracked' allowlist entry needs a reason naming the issue")
         allowlist[symbol] = entry
     return allowlist
 
