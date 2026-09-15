@@ -19,11 +19,11 @@ from pymcu.types import inline
 
 
 @inline
-def const(value):
+def const(expr):
     """Declare that an expression is a compile-time constant.
 
     Identity in PyMCU: integer literals and const[T]-annotated names are
     already folded at compile time, so const(x) hands the compiler the literal
     directly, which is the effect CircuitPython documents.
     """
-    return value
+    return expr
