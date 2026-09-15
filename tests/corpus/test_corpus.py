@@ -13,7 +13,34 @@ CORPUS = Path(__file__).resolve().parent
 PROGRAMS = CORPUS / "programs"
 TEMPLATE = CORPUS / "_template"
 SIZES = CORPUS / "sizes.json"
-DEFAULT_PYMCU = "/Users/begeistert/PycharmProjects/cp-hcsr04/.venv/bin/pymcu"
+
+
+def _default_pymcu() -> str:
+    """Locate the `pymcu` driver without hardcoding a path into one developer's own
+    project. A user project (like the old cp-hcsr04 wheel checkout this used to point
+    at) must never be a test dependency: it can be renamed, moved or deleted by its
+    owner without anyone touching this suite noticing why builds started failing.
+
+    Resolution order: PyMCU's own repo checkout venv first (this suite's compiler of
+    record: it editable-installs pymcu-stdlib and pymcu-circuitpython from their
+    working trees, so a source change is what this suite measures), then whatever
+    `pymcu` PATH finds otherwise, which is where a released/pipx install can be
+    older than the repo checkout and would silently measure the wrong compiler if
+    tried first. PYMCU_BIN overrides both, for CI or a different layout.
+    """
+    repo_venv = Path.home() / "Repos" / "PyMCU" / ".venv" / "bin" / "pymcu"
+    if repo_venv.is_file():
+        return str(repo_venv)
+    on_path = shutil.which("pymcu")
+    if on_path:
+        return on_path
+    raise RuntimeError(
+        "no `pymcu` driver found at ~/Repos/PyMCU/.venv/bin/pymcu or on PATH; "
+        "set PYMCU_BIN to the driver you want the corpus suite to build with."
+    )
+
+
+DEFAULT_PYMCU = _default_pymcu()
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 EXPECT_RE = re.compile(r"^# expect: (build|refuse)(?: (.*))?$")
