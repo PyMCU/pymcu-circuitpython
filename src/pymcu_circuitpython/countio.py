@@ -78,5 +78,5 @@ class Counter:
         return self
 
     @inline
-    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+    def __exit__(self, *args):
         self.deinit()
