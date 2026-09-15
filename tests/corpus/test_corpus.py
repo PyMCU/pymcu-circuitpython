@@ -70,6 +70,7 @@ def _flash_bytes(hex_file):
 def _build(tmp_path, program):
     project = tmp_path / program.stem
     shutil.copytree(TEMPLATE, project)
+    (project / "src").mkdir(exist_ok=True)   # git does not keep the empty src/ of the template
     shutil.copy2(program, project / "src" / "main.py")
 
     env = os.environ.copy()
