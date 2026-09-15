@@ -201,7 +201,7 @@ class UART:
         return self
 
     @inline
-    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+    def __exit__(self, *args):
         self.deinit()
 
 
@@ -255,7 +255,7 @@ class I2C:
             "found nothing and said nothing.")
 
     @inline
-    def writeto(self, address: uint8, buffer, start: uint16 = 0, end: uint16 = 65535):
+    def writeto(self, address: uint8, buffer, *, start: uint16 = 0, end: uint16 = 65535):
         """Write `buffer[start:end]` to the device at `address`.
 
         start and end slice the buffer, as they do in CircuitPython. They used to be
@@ -271,7 +271,7 @@ class I2C:
         self._bus.stop()
 
     @inline
-    def readfrom_into(self, address: uint8, buffer, start: uint16 = 0, end: uint16 = 65535):
+    def readfrom_into(self, address: uint8, buffer, *, start: uint16 = 0, end: uint16 = 65535):
         """Read into `buffer[start:end]` from the device at `address`.
 
         ACK is sent for every byte except the last, which is NACK'd, per the I2C protocol.
@@ -293,7 +293,7 @@ class I2C:
         self._bus.stop()
 
     @inline
-    def writeto_then_readfrom(self, address: uint8, out_buffer, in_buffer,
+    def writeto_then_readfrom(self, address: uint8, out_buffer, in_buffer, *,
                               out_start: uint16 = 0, out_end: uint16 = 65535,
                               in_start: uint16 = 0, in_end: uint16 = 65535):
         """Write `out_buffer[out_start:out_end]`, then (repeated START) read into
@@ -329,7 +329,7 @@ class I2C:
         return self
 
     @inline
-    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+    def __exit__(self, *args):
         self.deinit()
 
 
@@ -356,7 +356,7 @@ class SPI:
         pass
 
     @inline
-    def configure(self, baudrate: uint32 = 100000, polarity: uint8 = 0,
+    def configure(self, *, baudrate: uint32 = 100000, polarity: uint8 = 0,
                   phase: uint8 = 0, bits: uint8 = 8):
         """Program the clock rate, the mode and the frame size.
 
@@ -377,21 +377,21 @@ class SPI:
         return self._bus.frequency()
 
     @inline
-    def write(self, buffer, start: uint16 = 0, end: uint16 = 65535):
+    def write(self, buffer, *, start: uint16 = 0, end: uint16 = 65535):
         """Write `buffer[start:end]` to the bus (discarding read data)."""
         for i, b in enumerate(buffer):
             if i >= start and i < end:
                 self._bus.transfer(b)
 
     @inline
-    def readinto(self, buffer, start: uint16 = 0, end: uint16 = 65535, write_value: uint8 = 0):
+    def readinto(self, buffer, *, start: uint16 = 0, end: uint16 = 65535, write_value: uint8 = 0):
         """Read into `buffer[start:end]`, sending `write_value` for each byte."""
         for i, _ in enumerate(buffer):
             if i >= start and i < end:
                 buffer[i] = self._bus.transfer(write_value)
 
     @inline
-    def write_readinto(self, out_buffer, in_buffer, out_start: uint16 = 0,
+    def write_readinto(self, out_buffer, in_buffer, *, out_start: uint16 = 0,
                        out_end: uint16 = 65535, in_start: uint16 = 0, in_end: uint16 = 65535):
         """Full-duplex: write `out_buffer` while reading into `in_buffer`.
 
@@ -428,5 +428,5 @@ class SPI:
         return self
 
     @inline
-    def __exit__(self, exc_type=None, exc_value=None, traceback=None):
+    def __exit__(self, *args):
         self.deinit()
