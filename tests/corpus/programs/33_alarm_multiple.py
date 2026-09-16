@@ -1,8 +1,7 @@
-# expect: refuse name 'alarm0' is not defined
+# expect: build
 # source: CircuitPython alarm docs multiple alarm wait style
-# note: as of 2026-09-15 this no longer refuses at compile time, but do NOT flip this to
-# "build": TimeAlarm(monotonic_time=...) is the same wrongcode as 18_alarm_time.py, filed as
-# PyMCU/PyMCU#443. Leave failing here until #443 is fixed, then flip and measure.
+# PyMCU#443: NestedKeywordAlarmTests in pymcu-avr covers the time deadline
+# while waiting on both a time alarm and a pin alarm.
 import time
 import board
 import alarm
