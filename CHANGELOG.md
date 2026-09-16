@@ -1,6 +1,6 @@
 # Changelog — pymcu-circuitpython
 
-## 0.1.0b1 (Unreleased, prepared 2026-09-15)
+## 0.1.0b1 (frozen at 552e44c, 2026-09-15)
 
 Beta 1: this layer moves out of alpha alongside the frontend
 (`pymcu-compiler`/`pymcu-stdlib` 0.1.0b1) and the AVR backend
@@ -31,6 +31,8 @@ and the storage/os modules (#16) are out of beta 1 by decision.
 - **bitbangio**: start/end/configure() become keyword-only; write()'s buffer is spelled buf, and configure()'s baudrate default matches upstream's 100000
 - **pulseio**: PulseIn.__bool__ answers len(pulses) > 0; __exit__ matches upstream's arity
 - **watchdog**: WatchDogTimer is exported as the type of microcontroller.watchdog
+- **microcontroller**: implement RunMode and on_next_reset
+- **keypad**: Event gains timestamp, EventQueue is public, __bool__ added
 
 ### Fixed
 
@@ -85,6 +87,12 @@ and the storage/os modules (#16) are out of beta 1 by decision.
 - **parity**: resolve symbolic stub defaults and accept __exit__(self, *args)
 - **parity**: allowlist real gaps tracked as GitHub issues
 - **corpus**: create the template's src directory, which git does not keep empty
+- **corpus**: resolve the pymcu driver from PyMCU's own repo venv, not a user project
+- **corpus**: flip four fixed programs to build, refresh all sizes
+
+### CI
+
+- add API parity and corpus GitHub Actions workflows
 
 ### Reverted
 
