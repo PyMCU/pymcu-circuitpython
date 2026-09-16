@@ -89,7 +89,7 @@ jobs:
       - name: Install beta source packages and AVR toolchain
         run: |
           uv venv .venv
-          uv pip install --python .venv pytest -e PyMCU/lib -e PyMCU/extensions/pymcu-sdk -e PyMCU -e pymcu-avr -e .
+          uv pip install --python .venv --no-sources pytest -e PyMCU/lib -e PyMCU/extensions/pymcu-sdk -e PyMCU -e pymcu-avr -e .
 
       - name: Run corpus suite
         env:
