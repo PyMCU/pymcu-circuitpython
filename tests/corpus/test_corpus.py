@@ -40,7 +40,7 @@ def _default_pymcu() -> str:
     )
 
 
-DEFAULT_PYMCU = _default_pymcu()
+DEFAULT_PYMCU = os.environ.get("PYMCU_BIN") or _default_pymcu()
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 EXPECT_RE = re.compile(r"^# expect: (build|refuse)(?: (.*))?$")

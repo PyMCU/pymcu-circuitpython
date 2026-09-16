@@ -18,6 +18,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Checkout beta stdlib
+        uses: actions/checkout@v4
+        with:
+          repository: PyMCU/PyMCU
+          path: PyMCU
+
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -29,13 +35,15 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies (incl. circuitpython-stubs)
-        run: uv sync --group dev
+        run: |
+          uv venv .venv
+          uv pip install --python .venv --group dev pytest -e PyMCU/lib -e .
 
       - name: Run parity suite
-        run: uv run pytest tests/parity -v --tb=short
+        run: .venv/bin/python -m pytest tests/parity -v --tb=short
 
-  # Builds 49 real user-style programs with the pinned pymcu-compiler[avr]
-  # release from PyPI and checks the flash size gate in tests/corpus/sizes.json.
+  # Build the beta source chain before publication and keep the existing
+  # corpus expectations and flash size gate in tests/corpus/sizes.json.
   corpus:
     name: Corpus (compiled programs)
     runs-on: ubuntu-latest
@@ -45,6 +53,28 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Checkout beta compiler, stdlib and SDK
+        uses: actions/checkout@v4
+        with:
+          repository: PyMCU/PyMCU
+          path: PyMCU
+
+      - name: Checkout AVR backend
+        uses: actions/checkout@v4
+        with:
+          repository: PyMCU/pymcu-avr
+          path: pymcu-avr
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: PyMCU/global.json
+
+      - name: Build compiler and AVR backend
+        run: |
+          dotnet publish PyMCU/src/compiler/PyMCU.csproj -c Release -o PyMCU/build/bin --nologo
+          dotnet publish pymcu-avr/src/csharp/cli/PyMCU.Backend.AVR.Cli.csproj -c Release -o pymcu-avr/build/bin --nologo
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
@@ -56,16 +86,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Pinned versions, not this branch's source: the compiler and its AVR
-      # backend come from PyPI. tests/corpus/test_corpus.py sets PYTHONPATH
-      # to this repo's src/ itself when it shells out to `pymcu build`, so
-      # pymcu-circuitpython does not also need to be pip-installed here.
-      - name: Install pinned compiler + AVR backend
+      - name: Install beta source packages and AVR toolchain
         run: |
           uv venv .venv
-          uv pip install --python .venv pytest "pymcu-compiler[avr]"
+          uv pip install --python .venv pytest -e PyMCU/lib -e PyMCU/extensions/pymcu-sdk -e PyMCU -e pymcu-avr -e .
 
       - name: Run corpus suite
         env:
           PYMCU_BIN: ${{ github.workspace }}/.venv/bin/pymcu
-        run: .venv/bin/python -m pytest tests/corpus -v --tb=short
+          PYMCU_BACKEND_BINARY: avr=${{ github.workspace }}/pymcu-avr/build/bin/pymcuc-avr
+        run: .venv/bin/python -m pytest tests/corpus tests/test_corpus_driver.py -v --tb=short
