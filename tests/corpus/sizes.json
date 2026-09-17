@@ -5,7 +5,7 @@
   "04_servo_sweep.py": 932,
   "05_analog_read_serial.py": 650,
   "07_i2c_probe_loop.py": 614,
-  "08_spi_write.py": 200,
+  "08_spi_write.py": 222,
   "09_uart_echo_readinto.py": 832,
   "11_neopixel_write_raw.py": 312,
   "12_neopixel_fill_tuple.py": 1130,
