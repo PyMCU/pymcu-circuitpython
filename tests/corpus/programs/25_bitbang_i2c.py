@@ -1,4 +1,4 @@
-# expect: refuse bytearray() is a Python builtin that PyMCU does not provide
+# expect: build
 # source: CircuitPython bitbangio I2C docs shape
 import time
 import board

@@ -8,5 +8,5 @@ pulse = pulseio.PulseOut(board.D9, frequency=38000, duty_cycle=32768)
 signal = [9000, 4500, 560, 560]
 
 while True:
-    pulse.send(signal, len(signal))
+    pulse.send(signal)
     time.sleep(1)

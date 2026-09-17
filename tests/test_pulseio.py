@@ -90,11 +90,12 @@ def test_a_carrier_frequency_the_timer_cannot_reach_is_refused():
 
 def test_send_passes_the_durations_through():
     out = PulseOut("PD3")
-    out.send([9000, 4500, 560, 1690], 4)
+    out.send([9000, 4500, 560, 1690])
     assert out._train.sent == [9000, 4500, 560, 1690]
 
 
-def test_send_takes_only_the_count_it_was_given():
+def test_send_takes_its_length_from_the_sequence():
+    # CircuitPython's spelling is send(pulses) with no count argument.
     out = PulseOut("PD3")
-    out.send([560, 560, 1690, 560], 2)
+    out.send([560, 560])
     assert out._train.sent == [560, 560]

@@ -1,4 +1,4 @@
-# expect: refuse bytearray() is a Python builtin that PyMCU does not provide
+# expect: build
 # source: CircuitPython busio I2C writeto_then_readfrom sensor register style
 import time
 import board

@@ -129,16 +129,14 @@ class PulseOut:
         self._train = _PulseTrain(pin, frequency, duty_cycle)
 
     @inline
-    def send(self, pulses, count: uint16):
-        """Send `count` durations from `pulses`, carrier on for the first.
+    def send(self, pulses):
+        """Send the durations in `pulses`, carrier on for the first.
 
-        CircuitPython spells this `send(pulses)` and takes the length from the array. A
-        module-level array loses its length and its iterability when it crosses a parameter
-        (PyMCU#258), so neither `len(pulses)` nor `for p in pulses` can work here and the
-        count is asked for instead. When that lands, `count` becomes optional and nothing
-        else in this module changes.
+        Same spelling as CircuitPython: the length is taken from the sequence
+        itself. `pulses` may be a plain list of constants or a declared array;
+        both reach the HAL's run-time loop through the parameter binding.
         """
-        self._train.send(pulses, count)
+        self._train.send(pulses, len(pulses))
 
     @inline
     def deinit(self):
