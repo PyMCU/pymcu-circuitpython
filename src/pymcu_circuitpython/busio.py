@@ -219,6 +219,13 @@ class I2C:
         # refused inside the HAL with the reachable range named; it used to be dropped here
         # and the bus ran at 100 kHz whatever the program asked for.
         self._bus = _I2C(0, 0, frequency)
+        # CircuitPython checks the wiring: with the pull-ups the HAL just enabled holding
+        # the bus up and the TWI not driving anything until the first START, both lines
+        # read at the pins must be high. A line still low is a bus with nothing pulling it
+        # up, and refusing here is the message shared-module busio I2C raises on every
+        # port that keeps CIRCUITPY_REQUIRE_I2C_PULLUPS. The text is that port's own.
+        if self._bus.lines_high() == 0:
+            raise RuntimeError("No pull up found on SDA or SCL; check your wiring")
         self._locked = 0
 
     @property
