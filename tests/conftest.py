@@ -335,8 +335,15 @@ def _install_hal_mocks() -> None:
     class _MockI2C:
         # In step with pymcu.hal.i2c.I2C: the SCL rate reaches the constructor, and
         # frequency() reports what the integer bit-rate register can actually clock.
+        # `lines` is the level the bus pins read -- a test sets it to 0 to model a
+        # bus with nothing pulling it up, which busio.I2C then refuses.
+        lines = 1
+
         def __init__(self, addr=0, general_call=0, freq=100000):
             self._freq = freq
+
+        def lines_high(self):
+            return _MockI2C.lines
 
         def frequency(self):
             twbr = (16_000_000 // self._freq - 16) // 2

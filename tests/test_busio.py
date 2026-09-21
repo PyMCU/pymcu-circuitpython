@@ -108,6 +108,20 @@ def test_i2c_no_legacy_single_byte_api():
     assert hasattr(i2c, "writeto") and hasattr(i2c, "readfrom_into")
 
 
+def test_i2c_a_line_held_low_is_circuitpythons_wiring_error():
+    # CircuitPython's busio I2C refuses a bus whose lines do not read high with the
+    # pull-ups on -- a low line means nothing is pulling it up. The message is the
+    # upstream text (shared-module busio I2C, CIRCUITPY_REQUIRE_I2C_PULLUPS ports).
+    import pymcu.hal.i2c as hal_i2c
+    hal_i2c.I2C.lines = 0
+    try:
+        with pytest.raises(RuntimeError) as e:
+            I2C(None, None)
+        assert str(e.value) == "No pull up found on SDA or SCL; check your wiring"
+    finally:
+        hal_i2c.I2C.lines = 1
+
+
 def test_spi_configure_reaches_the_bus():
     # configure() used to record baudrate and reprogram nothing.
     spi = SPI(None)
