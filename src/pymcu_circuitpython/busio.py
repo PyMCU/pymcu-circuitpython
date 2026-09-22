@@ -222,141 +222,133 @@ class UART:
 # compiled only when a caller actually slices -- a program that never does pays
 # nothing for it. The raise paths share the _i2c_fail_* stubs so the message
 # store and error return are emitted once per failure kind, not once per site.
-# Each body is gated on the AVR HAL the same way the class's imports are; on
-# another architecture the folded-away branch is never resolved, and the
-# subroutine is an empty body nobody can reach through the class.
+# The bodies call the HAL primitives the module import binds for the chip, so
+# they carry no per-function arch check -- a port that supplies the same names
+# under the one gate above gets these bodies unchanged.
 def _i2c_fail_io():
-    if __CHIP__.arch == "avr":
-        _hal_i2c_stop()
-        raise OSError("[Errno 5] Input/output error")
+    _hal_i2c_stop()
+    raise OSError("[Errno 5] Input/output error")
 
 
 def _i2c_fail_nodev():
-    if __CHIP__.arch == "avr":
-        _hal_i2c_stop()
-        raise OSError("[Errno 19] No such device")
+    _hal_i2c_stop()
+    raise OSError("[Errno 19] No such device")
 
 
 def _i2c_writeto(address: uint8, buffer, n: uint16):
-    if __CHIP__.arch == "avr":
-        st: uint8 = _hal_i2c_start()
-        if st != _I2C.START and st != _I2C.RESTART:
+    st: uint8 = _hal_i2c_start()
+    if st != _I2C.START and st != _I2C.RESTART:
+        _i2c_fail_io()
+    if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
+        _i2c_fail_nodev()
+    k: uint16 = 0
+    while k < n:
+        if _hal_i2c_write(buffer[k]) != _I2C.DATA_ACK:
             _i2c_fail_io()
-        if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
-            _i2c_fail_nodev()
-        k: uint16 = 0
-        while k < n:
-            if _hal_i2c_write(buffer[k]) != _I2C.DATA_ACK:
-                _i2c_fail_io()
-            k = k + 1
-        _hal_i2c_stop()
+        k = k + 1
+    _hal_i2c_stop()
 
 
 def _i2c_writeto_window(address: uint8, buffer, start: uint16, end: uint16):
-    if __CHIP__.arch == "avr":
-        st: uint8 = _hal_i2c_start()
-        if st != _I2C.START and st != _I2C.RESTART:
+    st: uint8 = _hal_i2c_start()
+    if st != _I2C.START and st != _I2C.RESTART:
+        _i2c_fail_io()
+    if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
+        _i2c_fail_nodev()
+    i: uint16 = start
+    while i < end:
+        if _hal_i2c_write(buffer[i]) != _I2C.DATA_ACK:
             _i2c_fail_io()
-        if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
-            _i2c_fail_nodev()
-        i: uint16 = start
-        while i < end:
-            if _hal_i2c_write(buffer[i]) != _I2C.DATA_ACK:
-                _i2c_fail_io()
-            i = i + 1
-        _hal_i2c_stop()
+        i = i + 1
+    _hal_i2c_stop()
 
 
 def _i2c_readfrom(address: uint8, buffer, n: uint16):
-    if __CHIP__.arch == "avr":
-        st: uint8 = _hal_i2c_start()
-        if st != _I2C.START and st != _I2C.RESTART:
-            _i2c_fail_io()
-        if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
-            _i2c_fail_nodev()
-        if n > 0:
-            last: uint16 = n - 1
-            k: uint16 = 0
-            while k < last:
-                buffer[k] = _hal_i2c_read_ack()
-                k = k + 1
-            buffer[last] = _hal_i2c_read_nack()
-        _hal_i2c_stop()
+    st: uint8 = _hal_i2c_start()
+    if st != _I2C.START and st != _I2C.RESTART:
+        _i2c_fail_io()
+    if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
+        _i2c_fail_nodev()
+    if n > 0:
+        last: uint16 = n - 1
+        k: uint16 = 0
+        while k < last:
+            buffer[k] = _hal_i2c_read_ack()
+            k = k + 1
+        buffer[last] = _hal_i2c_read_nack()
+    _hal_i2c_stop()
 
 
 def _i2c_readfrom_window(address: uint8, buffer, start: uint16, n: uint16):
-    if __CHIP__.arch == "avr":
-        st: uint8 = _hal_i2c_start()
-        if st != _I2C.START and st != _I2C.RESTART:
-            _i2c_fail_io()
-        if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
-            _i2c_fail_nodev()
-        if n > 0:
-            last: uint16 = n - 1
-            k: uint16 = 0
-            while k < last:
-                buffer[start + k] = _hal_i2c_read_ack()
-                k = k + 1
-            buffer[start + last] = _hal_i2c_read_nack()
-        _hal_i2c_stop()
+    st: uint8 = _hal_i2c_start()
+    if st != _I2C.START and st != _I2C.RESTART:
+        _i2c_fail_io()
+    if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
+        _i2c_fail_nodev()
+    if n > 0:
+        last: uint16 = n - 1
+        k: uint16 = 0
+        while k < last:
+            buffer[start + k] = _hal_i2c_read_ack()
+            k = k + 1
+        buffer[start + last] = _hal_i2c_read_nack()
+    _hal_i2c_stop()
 
 
 def _i2c_writeto_then_readfrom(address: uint8, out_buffer, out_n: uint16,
                                in_buffer, in_n: uint16):
-    if __CHIP__.arch == "avr":
-        st: uint8 = _hal_i2c_start()
-        if st != _I2C.START and st != _I2C.RESTART:
+    st: uint8 = _hal_i2c_start()
+    if st != _I2C.START and st != _I2C.RESTART:
+        _i2c_fail_io()
+    if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
+        _i2c_fail_nodev()
+    i: uint16 = 0
+    while i < out_n:
+        if _hal_i2c_write(out_buffer[i]) != _I2C.DATA_ACK:
             _i2c_fail_io()
-        if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
-            _i2c_fail_nodev()
-        i: uint16 = 0
-        while i < out_n:
-            if _hal_i2c_write(out_buffer[i]) != _I2C.DATA_ACK:
-                _i2c_fail_io()
-            i = i + 1
-        st = _hal_i2c_start()                                  # repeated START
-        if st != _I2C.START and st != _I2C.RESTART:
-            _i2c_fail_io()
-        if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
-            _i2c_fail_nodev()
-        if in_n > 0:
-            last: uint16 = in_n - 1
-            k: uint16 = 0
-            while k < last:
-                in_buffer[k] = _hal_i2c_read_ack()
-                k = k + 1
-            in_buffer[last] = _hal_i2c_read_nack()
-        _hal_i2c_stop()
+        i = i + 1
+    st = _hal_i2c_start()                                  # repeated START
+    if st != _I2C.START and st != _I2C.RESTART:
+        _i2c_fail_io()
+    if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
+        _i2c_fail_nodev()
+    if in_n > 0:
+        last: uint16 = in_n - 1
+        k: uint16 = 0
+        while k < last:
+            in_buffer[k] = _hal_i2c_read_ack()
+            k = k + 1
+        in_buffer[last] = _hal_i2c_read_nack()
+    _hal_i2c_stop()
 
 
 def _i2c_writeto_then_readfrom_window(address: uint8, out_buffer,
                                       out_start: uint16, out_end: uint16,
                                       in_buffer, in_start: uint16,
                                       in_n: uint16):
-    if __CHIP__.arch == "avr":
-        st: uint8 = _hal_i2c_start()
-        if st != _I2C.START and st != _I2C.RESTART:
+    st: uint8 = _hal_i2c_start()
+    if st != _I2C.START and st != _I2C.RESTART:
+        _i2c_fail_io()
+    if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
+        _i2c_fail_nodev()
+    i: uint16 = out_start
+    while i < out_end:
+        if _hal_i2c_write(out_buffer[i]) != _I2C.DATA_ACK:
             _i2c_fail_io()
-        if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
-            _i2c_fail_nodev()
-        i: uint16 = out_start
-        while i < out_end:
-            if _hal_i2c_write(out_buffer[i]) != _I2C.DATA_ACK:
-                _i2c_fail_io()
-            i = i + 1
-        st = _hal_i2c_start()                                  # repeated START
-        if st != _I2C.START and st != _I2C.RESTART:
-            _i2c_fail_io()
-        if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
-            _i2c_fail_nodev()
-        if in_n > 0:
-            last: uint16 = in_n - 1
-            k: uint16 = 0
-            while k < last:
-                in_buffer[in_start + k] = _hal_i2c_read_ack()
-                k = k + 1
-            in_buffer[in_start + last] = _hal_i2c_read_nack()
-        _hal_i2c_stop()
+        i = i + 1
+    st = _hal_i2c_start()                                  # repeated START
+    if st != _I2C.START and st != _I2C.RESTART:
+        _i2c_fail_io()
+    if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
+        _i2c_fail_nodev()
+    if in_n > 0:
+        last: uint16 = in_n - 1
+        k: uint16 = 0
+        while k < last:
+            in_buffer[in_start + k] = _hal_i2c_read_ack()
+            k = k + 1
+        in_buffer[in_start + last] = _hal_i2c_read_nack()
+    _hal_i2c_stop()
 
 
 class I2C:
