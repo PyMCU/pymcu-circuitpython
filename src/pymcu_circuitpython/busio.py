@@ -48,6 +48,11 @@ from pymcu.types import uint8, uint16, uint32, int16, inline, const
 from pymcu.hal.uart import UART as _UART
 if __CHIP__.arch == "avr":
     from pymcu.hal.i2c import I2C as _I2C
+    from pymcu.hal.avr.i2c.avr import (
+        i2c_start as _hal_i2c_start, i2c_stop as _hal_i2c_stop,
+        i2c_write as _hal_i2c_write,
+        i2c_read_ack as _hal_i2c_read_ack, i2c_read_nack as _hal_i2c_read_nack,
+    )
     from pymcu.hal.spi import SPI as _SPI
 
 
@@ -205,6 +210,155 @@ class UART:
         self.deinit()
 
 
+# The transfer bodies of busio.I2C live here as module-level shared subroutines,
+# compiled once: the methods below are thin @inline wrappers that fold the
+# buffer's compile-time length into the slice bounds and call in. The buffer
+# arrives as a pointer and the bounds as ordinary arguments, so the START,
+# address and data ACK checks exist once in the image -- expanded inline they
+# cost a hundred bytes a copy, and a driver like the SSD1306's carries fifty.
+#
+# Two shapes per transfer: the full-buffer form takes the byte count alone and
+# drops the slice start (always zero) off the call, while the windowed form is
+# compiled only when a caller actually slices -- a program that never does pays
+# nothing for it. The raise paths share the _i2c_fail_* stubs so the message
+# store and error return are emitted once per failure kind, not once per site.
+# Each body is gated on the AVR HAL the same way the class's imports are; on
+# another architecture the folded-away branch is never resolved, and the
+# subroutine is an empty body nobody can reach through the class.
+def _i2c_fail_io():
+    if __CHIP__.arch == "avr":
+        _hal_i2c_stop()
+        raise OSError("[Errno 5] Input/output error")
+
+
+def _i2c_fail_nodev():
+    if __CHIP__.arch == "avr":
+        _hal_i2c_stop()
+        raise OSError("[Errno 19] No such device")
+
+
+def _i2c_writeto(address: uint8, buffer, n: uint16):
+    if __CHIP__.arch == "avr":
+        st: uint8 = _hal_i2c_start()
+        if st != _I2C.START and st != _I2C.RESTART:
+            _i2c_fail_io()
+        if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
+            _i2c_fail_nodev()
+        k: uint16 = 0
+        while k < n:
+            if _hal_i2c_write(buffer[k]) != _I2C.DATA_ACK:
+                _i2c_fail_io()
+            k = k + 1
+        _hal_i2c_stop()
+
+
+def _i2c_writeto_window(address: uint8, buffer, start: uint16, end: uint16):
+    if __CHIP__.arch == "avr":
+        st: uint8 = _hal_i2c_start()
+        if st != _I2C.START and st != _I2C.RESTART:
+            _i2c_fail_io()
+        if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
+            _i2c_fail_nodev()
+        i: uint16 = start
+        while i < end:
+            if _hal_i2c_write(buffer[i]) != _I2C.DATA_ACK:
+                _i2c_fail_io()
+            i = i + 1
+        _hal_i2c_stop()
+
+
+def _i2c_readfrom(address: uint8, buffer, n: uint16):
+    if __CHIP__.arch == "avr":
+        st: uint8 = _hal_i2c_start()
+        if st != _I2C.START and st != _I2C.RESTART:
+            _i2c_fail_io()
+        if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
+            _i2c_fail_nodev()
+        if n > 0:
+            last: uint16 = n - 1
+            k: uint16 = 0
+            while k < last:
+                buffer[k] = _hal_i2c_read_ack()
+                k = k + 1
+            buffer[last] = _hal_i2c_read_nack()
+        _hal_i2c_stop()
+
+
+def _i2c_readfrom_window(address: uint8, buffer, start: uint16, n: uint16):
+    if __CHIP__.arch == "avr":
+        st: uint8 = _hal_i2c_start()
+        if st != _I2C.START and st != _I2C.RESTART:
+            _i2c_fail_io()
+        if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
+            _i2c_fail_nodev()
+        if n > 0:
+            last: uint16 = n - 1
+            k: uint16 = 0
+            while k < last:
+                buffer[start + k] = _hal_i2c_read_ack()
+                k = k + 1
+            buffer[start + last] = _hal_i2c_read_nack()
+        _hal_i2c_stop()
+
+
+def _i2c_writeto_then_readfrom(address: uint8, out_buffer, out_n: uint16,
+                               in_buffer, in_n: uint16):
+    if __CHIP__.arch == "avr":
+        st: uint8 = _hal_i2c_start()
+        if st != _I2C.START and st != _I2C.RESTART:
+            _i2c_fail_io()
+        if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
+            _i2c_fail_nodev()
+        i: uint16 = 0
+        while i < out_n:
+            if _hal_i2c_write(out_buffer[i]) != _I2C.DATA_ACK:
+                _i2c_fail_io()
+            i = i + 1
+        st = _hal_i2c_start()                                  # repeated START
+        if st != _I2C.START and st != _I2C.RESTART:
+            _i2c_fail_io()
+        if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
+            _i2c_fail_nodev()
+        if in_n > 0:
+            last: uint16 = in_n - 1
+            k: uint16 = 0
+            while k < last:
+                in_buffer[k] = _hal_i2c_read_ack()
+                k = k + 1
+            in_buffer[last] = _hal_i2c_read_nack()
+        _hal_i2c_stop()
+
+
+def _i2c_writeto_then_readfrom_window(address: uint8, out_buffer,
+                                      out_start: uint16, out_end: uint16,
+                                      in_buffer, in_start: uint16,
+                                      in_n: uint16):
+    if __CHIP__.arch == "avr":
+        st: uint8 = _hal_i2c_start()
+        if st != _I2C.START and st != _I2C.RESTART:
+            _i2c_fail_io()
+        if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
+            _i2c_fail_nodev()
+        i: uint16 = out_start
+        while i < out_end:
+            if _hal_i2c_write(out_buffer[i]) != _I2C.DATA_ACK:
+                _i2c_fail_io()
+            i = i + 1
+        st = _hal_i2c_start()                                  # repeated START
+        if st != _I2C.START and st != _I2C.RESTART:
+            _i2c_fail_io()
+        if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
+            _i2c_fail_nodev()
+        if in_n > 0:
+            last: uint16 = in_n - 1
+            k: uint16 = 0
+            while k < last:
+                in_buffer[in_start + k] = _hal_i2c_read_ack()
+                k = k + 1
+            in_buffer[in_start + last] = _hal_i2c_read_nack()
+        _hal_i2c_stop()
+
+
 class I2C:
     """CircuitPython-compatible I2C bus controller.
 
@@ -275,19 +429,19 @@ class I2C:
         data byte fails. That is what adafruit_bus_device.I2CDevice catches to report
         "No I2C device at address"; it used to be ignored, so a dark display looked
         exactly like a working one.
+
+        The body lives in `_i2c_writeto` so the checks compile once; this wrapper
+        folds the buffer's length into `end` where the caller can still see it.
+        The length goes straight into the call as `len(buffer)` -- a compile-time
+        constant -- rather than through a `limit` local the conditional clamp would
+        rebind, which would keep the argument a runtime variable at the marshal.
         """
-        st: uint8 = self._bus.start()
-        if st != _I2C.START and st != _I2C.RESTART:
-            raise OSError("[Errno 5] Input/output error")
-        if self._bus.write(address << 1) != _I2C.SLA_ACK:      # SLA+W
-            self._bus.stop()
-            raise OSError("[Errno 19] No such device")
-        for i, b in enumerate(buffer):
-            if i >= start and i < end:
-                if self._bus.write(b) != _I2C.DATA_ACK:
-                    self._bus.stop()
-                    raise OSError("[Errno 5] Input/output error")
-        self._bus.stop()
+        if end < len(buffer):
+            _i2c_writeto_window(address, buffer, start, end)
+        elif start == 0:
+            _i2c_writeto(address, buffer, len(buffer))
+        else:
+            _i2c_writeto_window(address, buffer, start, len(buffer))
 
     @inline
     def readfrom_into(self, address: uint8, buffer, *, start: uint16 = 0, end: uint16 = 65535):
@@ -298,25 +452,21 @@ class I2C:
         Raises OSError like writeto does: [Errno 19] when the address is NACK'd,
         [Errno 5] when the START fails.
         """
-        n: uint16 = 0
-        for i, _ in enumerate(buffer):
-            if i >= start and i < end:
-                n = n + 1
-        st: uint8 = self._bus.start()
-        if st != _I2C.START and st != _I2C.RESTART:
-            raise OSError("[Errno 5] Input/output error")
-        if self._bus.write((address << 1) | 1) != _I2C.SLA_R_ACK:  # SLA+R
-            self._bus.stop()
-            raise OSError("[Errno 19] No such device")
-        k: uint16 = 0
-        for i, _ in enumerate(buffer):
-            if i >= start and i < end:
-                if k < n - 1:
-                    buffer[i] = self._bus.read_ack()
-                else:
-                    buffer[i] = self._bus.read_nack()
-                k = k + 1
-        self._bus.stop()
+        if start == 0:
+            # The common read fills the buffer from offset 0; `len(buffer)` reaches the
+            # call as a compile-time constant instead of a rebound local.
+            if end < len(buffer):
+                _i2c_readfrom(address, buffer, end)
+            else:
+                _i2c_readfrom(address, buffer, len(buffer))
+        else:
+            limit: uint16 = len(buffer)
+            if end < limit:
+                limit = end
+            n: uint16 = 0
+            if start < limit:
+                n = limit - start
+            _i2c_readfrom_window(address, buffer, start, n)
 
     @inline
     def writeto_then_readfrom(self, address: uint8, out_buffer, in_buffer, *,
@@ -326,37 +476,23 @@ class I2C:
         `in_buffer[in_start:in_end]`.
 
         Raises OSError like writeto/readfrom_into do."""
+        out_limit: uint16 = len(out_buffer)
+        if out_end < out_limit:
+            out_limit = out_end
+        out_n: uint16 = 0
+        if out_start < out_limit:
+            out_n = out_limit - out_start
+        in_limit: uint16 = len(in_buffer)
+        if in_end < in_limit:
+            in_limit = in_end
         in_n: uint16 = 0
-        for i, _ in enumerate(in_buffer):
-            if i >= in_start and i < in_end:
-                in_n = in_n + 1
-        st: uint8 = self._bus.start()
-        if st != _I2C.START and st != _I2C.RESTART:
-            raise OSError("[Errno 5] Input/output error")
-        if self._bus.write(address << 1) != _I2C.SLA_ACK:      # SLA+W
-            self._bus.stop()
-            raise OSError("[Errno 19] No such device")
-        for i, b in enumerate(out_buffer):
-            if i >= out_start and i < out_end:
-                if self._bus.write(b) != _I2C.DATA_ACK:
-                    self._bus.stop()
-                    raise OSError("[Errno 5] Input/output error")
-        st = self._bus.start()                                 # repeated START
-        if st != _I2C.START and st != _I2C.RESTART:
-            self._bus.stop()
-            raise OSError("[Errno 5] Input/output error")
-        if self._bus.write((address << 1) | 1) != _I2C.SLA_R_ACK:  # SLA+R
-            self._bus.stop()
-            raise OSError("[Errno 19] No such device")
-        k: uint16 = 0
-        for i, _ in enumerate(in_buffer):
-            if i >= in_start and i < in_end:
-                if k < in_n - 1:
-                    in_buffer[i] = self._bus.read_ack()
-                else:
-                    in_buffer[i] = self._bus.read_nack()
-                k = k + 1
-        self._bus.stop()
+        if in_start < in_limit:
+            in_n = in_limit - in_start
+        if out_start == 0 and in_start == 0:
+            _i2c_writeto_then_readfrom(address, out_buffer, out_n, in_buffer, in_n)
+        else:
+            _i2c_writeto_then_readfrom_window(address, out_buffer, out_start,
+                                              out_limit, in_buffer, in_start, in_n)
 
     @inline
     def deinit(self):
