@@ -11,6 +11,9 @@
   address, `[Errno 5] Input/output error` for a failed START or a NACKed data byte —
   after sending STOP. That is the contract `adafruit_bus_device.I2CDevice` expects, so an
   absent device surfaces as its `ValueError("No I2C device at address: 0x..")`.
+  The checks live in shared `_i2c_writeto`/`_i2c_readfrom` bodies rather than expanding at
+  every call site, and the slice bounds reach them as compile-time constants, so the raise
+  costs the display driver a fraction of what a per-site expansion did.
 - **bitbangio**: `I2C` follows the same contract on the software bus, reading the ACK bit
   the HAL bit-bang returns (0 = ACK).
 
