@@ -1,4 +1,4 @@
-# expect: refuse array index must be an integer
+# expect: refuse has no value in this position
 # source: Regression corpus for a dict of lists stored as a class field
 class Tables:
     lookup = {"warm": [1, 2, 3], "cool": [4, 5, 6]}
