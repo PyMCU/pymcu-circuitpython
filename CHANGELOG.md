@@ -1,5 +1,19 @@
 # Changelog — pymcu-circuitpython
 
+## Unreleased
+
+### Fixed
+
+- **busio**: `I2C.writeto`, `readfrom_into` and `writeto_then_readfrom` ignored the HAL's
+  return values, so a NACKed transaction looked like a successful one and a
+  `try/except Exception` around the call never ran — the dark-display field report. They
+  now raise `OSError` with upstream's messages — `[Errno 19] No such device` for a NACKed
+  address, `[Errno 5] Input/output error` for a failed START or a NACKed data byte —
+  after sending STOP. That is the contract `adafruit_bus_device.I2CDevice` expects, so an
+  absent device surfaces as its `ValueError("No I2C device at address: 0x..")`.
+- **bitbangio**: `I2C` follows the same contract on the software bus, reading the ACK bit
+  the HAL bit-bang returns (0 = ACK).
+
 ## 0.1.0b1 (frozen at 552e44c, 2026-09-15)
 
 Beta 1: this layer moves out of alpha alongside the frontend
