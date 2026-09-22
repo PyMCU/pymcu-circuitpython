@@ -59,6 +59,40 @@ def test_scan_says_what_to_use_instead():
     assert "probe" in str(e.value)
 
 
+def test_writeto_raises_on_address_nack():
+    # The bit-banged bus returns the ACK bit the way the hardware one returns the
+    # TWI status; a NACK must raise the same OSError busio.I2C raises.
+    i2c = I2C("PD2", "PD3")
+    i2c._bus.nack.add(0x3C)
+    with pytest.raises(OSError) as e:
+        i2c.writeto(0x3C, b"\x00")
+    assert str(e.value) == "[Errno 19] No such device"
+
+
+def test_writeto_raises_on_data_nack():
+    i2c = I2C("PD2", "PD3")
+    i2c._bus.nack_data = True
+    with pytest.raises(OSError) as e:
+        i2c.writeto(0x3C, b"\x00\x01")
+    assert str(e.value) == "[Errno 5] Input/output error"
+
+
+def test_readfrom_into_raises_on_address_nack():
+    i2c = I2C("PD2", "PD3")
+    i2c._bus.nack.add(0x3C)
+    with pytest.raises(OSError) as e:
+        i2c.readfrom_into(0x3C, bytearray(2))
+    assert str(e.value) == "[Errno 19] No such device"
+
+
+def test_writeto_then_readfrom_raises_on_address_nack():
+    i2c = I2C("PD2", "PD3")
+    i2c._bus.nack.add(0x3C)
+    with pytest.raises(OSError) as e:
+        i2c.writeto_then_readfrom(0x3C, b"\x00", bytearray(1))
+    assert str(e.value) == "[Errno 19] No such device"
+
+
 def test_the_soft_spi_clocks_the_bytes_out():
     spi = SPI("PD5", MOSI="PD6", MISO="PD7")
     spi.write(b"\x9F\x01")

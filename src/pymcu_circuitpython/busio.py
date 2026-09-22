@@ -269,12 +269,24 @@ class I2C:
         accepted and the whole buffer sent, so a program writing one register out of a
         packet wrote the packet. At their defaults the bounds fold away and this is the
         same loop it always was.
+
+        A NACK raises OSError, as CircuitPython does: [Errno 19] No such device when
+        the address goes unanswered, [Errno 5] Input/output error when the START or a
+        data byte fails. That is what adafruit_bus_device.I2CDevice catches to report
+        "No I2C device at address"; it used to be ignored, so a dark display looked
+        exactly like a working one.
         """
-        self._bus.start()
-        self._bus.write(address << 1)        # SLA+W
+        st: uint8 = self._bus.start()
+        if st != _I2C.START and st != _I2C.RESTART:
+            raise OSError("[Errno 5] Input/output error")
+        if self._bus.write(address << 1) != _I2C.SLA_ACK:      # SLA+W
+            self._bus.stop()
+            raise OSError("[Errno 19] No such device")
         for i, b in enumerate(buffer):
             if i >= start and i < end:
-                self._bus.write(b)
+                if self._bus.write(b) != _I2C.DATA_ACK:
+                    self._bus.stop()
+                    raise OSError("[Errno 5] Input/output error")
         self._bus.stop()
 
     @inline
@@ -282,13 +294,20 @@ class I2C:
         """Read into `buffer[start:end]` from the device at `address`.
 
         ACK is sent for every byte except the last, which is NACK'd, per the I2C protocol.
+
+        Raises OSError like writeto does: [Errno 19] when the address is NACK'd,
+        [Errno 5] when the START fails.
         """
         n: uint16 = 0
         for i, _ in enumerate(buffer):
             if i >= start and i < end:
                 n = n + 1
-        self._bus.start()
-        self._bus.write((address << 1) | 1)  # SLA+R
+        st: uint8 = self._bus.start()
+        if st != _I2C.START and st != _I2C.RESTART:
+            raise OSError("[Errno 5] Input/output error")
+        if self._bus.write((address << 1) | 1) != _I2C.SLA_R_ACK:  # SLA+R
+            self._bus.stop()
+            raise OSError("[Errno 19] No such device")
         k: uint16 = 0
         for i, _ in enumerate(buffer):
             if i >= start and i < end:
@@ -304,18 +323,31 @@ class I2C:
                               out_start: uint16 = 0, out_end: uint16 = 65535,
                               in_start: uint16 = 0, in_end: uint16 = 65535):
         """Write `out_buffer[out_start:out_end]`, then (repeated START) read into
-        `in_buffer[in_start:in_end]`."""
+        `in_buffer[in_start:in_end]`.
+
+        Raises OSError like writeto/readfrom_into do."""
         in_n: uint16 = 0
         for i, _ in enumerate(in_buffer):
             if i >= in_start and i < in_end:
                 in_n = in_n + 1
-        self._bus.start()
-        self._bus.write(address << 1)        # SLA+W
+        st: uint8 = self._bus.start()
+        if st != _I2C.START and st != _I2C.RESTART:
+            raise OSError("[Errno 5] Input/output error")
+        if self._bus.write(address << 1) != _I2C.SLA_ACK:      # SLA+W
+            self._bus.stop()
+            raise OSError("[Errno 19] No such device")
         for i, b in enumerate(out_buffer):
             if i >= out_start and i < out_end:
-                self._bus.write(b)
-        self._bus.start()                    # repeated START
-        self._bus.write((address << 1) | 1)  # SLA+R
+                if self._bus.write(b) != _I2C.DATA_ACK:
+                    self._bus.stop()
+                    raise OSError("[Errno 5] Input/output error")
+        st = self._bus.start()                                 # repeated START
+        if st != _I2C.START and st != _I2C.RESTART:
+            self._bus.stop()
+            raise OSError("[Errno 5] Input/output error")
+        if self._bus.write((address << 1) | 1) != _I2C.SLA_R_ACK:  # SLA+R
+            self._bus.stop()
+            raise OSError("[Errno 19] No such device")
         k: uint16 = 0
         for i, _ in enumerate(in_buffer):
             if i >= in_start and i < in_end:

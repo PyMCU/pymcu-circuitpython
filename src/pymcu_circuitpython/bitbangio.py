@@ -93,12 +93,21 @@ class I2C:
 
     @inline
     def writeto(self, address: uint8, buffer, *, start: uint16 = 0, end: uint16 = 65535):
-        """Write `buffer[start:end]` to the device at `address`."""
+        """Write `buffer[start:end]` to the device at `address`.
+
+        A NACK raises OSError, matching busio.I2C and CircuitPython: [Errno 19] for
+        the address, [Errno 5] for a data byte. A bit-banged START cannot fail (the
+        pins are ours to drive), so there is no START check here.
+        """
         self._bus.start()
-        self._bus.write((address << 1) & 0xFE)   # SLA+W
+        if self._bus.write((address << 1) & 0xFE) != 0:   # SLA+W ack bit: 0=ACK
+            self._bus.stop()
+            raise OSError("[Errno 19] No such device")
         for i, b in enumerate(buffer):
             if i >= start and i < end:
-                self._bus.write(b)
+                if self._bus.write(b) != 0:
+                    self._bus.stop()
+                    raise OSError("[Errno 5] Input/output error")
         self._bus.stop()
 
     @inline
@@ -106,13 +115,17 @@ class I2C:
         """Read into `buffer[start:end]` from the device at `address`.
 
         ACK is sent for every byte except the last, which is NACK'd, per the I2C protocol.
+
+        Raises OSError [Errno 19] when the address is NACK'd, like busio.I2C.
         """
         n: uint16 = 0
         for i, _ in enumerate(buffer):
             if i >= start and i < end:
                 n = n + 1
         self._bus.start()
-        self._bus.write((address << 1) | 1)      # SLA+R
+        if self._bus.write((address << 1) | 1) != 0:      # SLA+R ack bit
+            self._bus.stop()
+            raise OSError("[Errno 19] No such device")
         k: uint16 = 0
         for i, _ in enumerate(buffer):
             if i >= start and i < end:
@@ -127,18 +140,26 @@ class I2C:
     def writeto_then_readfrom(self, address: uint8, out_buffer, in_buffer, *,
                               out_start: uint16 = 0, out_end: uint16 = 65535,
                               in_start: uint16 = 0, in_end: uint16 = 65535):
-        """Write `out_buffer`, then (repeated START) read into `in_buffer`."""
+        """Write `out_buffer`, then (repeated START) read into `in_buffer`.
+
+        Raises OSError like writeto/readfrom_into do."""
         in_n: uint16 = 0
         for i, _ in enumerate(in_buffer):
             if i >= in_start and i < in_end:
                 in_n = in_n + 1
         self._bus.start()
-        self._bus.write((address << 1) & 0xFE)   # SLA+W
+        if self._bus.write((address << 1) & 0xFE) != 0:   # SLA+W ack bit
+            self._bus.stop()
+            raise OSError("[Errno 19] No such device")
         for i, b in enumerate(out_buffer):
             if i >= out_start and i < out_end:
-                self._bus.write(b)
-        self._bus.start()                        # repeated START
-        self._bus.write((address << 1) | 1)      # SLA+R
+                if self._bus.write(b) != 0:
+                    self._bus.stop()
+                    raise OSError("[Errno 5] Input/output error")
+        self._bus.start()                                 # repeated START
+        if self._bus.write((address << 1) | 1) != 0:      # SLA+R ack bit
+            self._bus.stop()
+            raise OSError("[Errno 19] No such device")
         k: uint16 = 0
         for i, _ in enumerate(in_buffer):
             if i >= in_start and i < in_end:

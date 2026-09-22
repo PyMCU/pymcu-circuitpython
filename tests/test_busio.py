@@ -102,6 +102,69 @@ def test_i2c_probe_and_writeto():
     i2c.readfrom_into(0x68, rx)
 
 
+def test_i2c_writeto_raises_on_address_nack():
+    # The TWI status used to be dropped, so the write reported success on a dead bus.
+    i2c = I2C(None, None)
+    i2c._bus.nack.add(0x3C)
+    with pytest.raises(OSError) as e:
+        i2c.writeto(0x3C, b"\x00")
+    assert str(e.value) == "[Errno 19] No such device"
+
+
+def test_i2c_writeto_raises_on_data_nack():
+    i2c = I2C(None, None)
+    i2c._bus.nack_data = True
+    with pytest.raises(OSError) as e:
+        i2c.writeto(0x3C, b"\x00\x01")
+    assert str(e.value) == "[Errno 5] Input/output error"
+
+
+def test_i2c_writeto_raises_when_start_fails():
+    i2c = I2C(None, None)
+    i2c._bus.fail_start = True
+    with pytest.raises(OSError) as e:
+        i2c.writeto(0x3C, b"\x00")
+    assert str(e.value) == "[Errno 5] Input/output error"
+
+
+def test_i2c_readfrom_into_raises_on_address_nack():
+    i2c = I2C(None, None)
+    i2c._bus.nack.add(0x3C)
+    with pytest.raises(OSError) as e:
+        i2c.readfrom_into(0x3C, bytearray(2))
+    assert str(e.value) == "[Errno 19] No such device"
+
+
+def test_i2c_writeto_then_readfrom_raises_on_address_nack():
+    i2c = I2C(None, None)
+    i2c._bus.nack.add(0x3C)
+    with pytest.raises(OSError) as e:
+        i2c.writeto_then_readfrom(0x3C, b"\x00", bytearray(1))
+    assert str(e.value) == "[Errno 19] No such device"
+
+
+def test_i2c_writeto_then_readfrom_raises_on_data_nack():
+    i2c = I2C(None, None)
+    i2c._bus.nack_data = True
+    with pytest.raises(OSError) as e:
+        i2c.writeto_then_readfrom(0x3C, b"\x00", bytearray(1))
+    assert str(e.value) == "[Errno 5] Input/output error"
+
+
+def test_i2c_oserror_is_what_i2cdevice_catches():
+    # adafruit_bus_device.I2CDevice.__probe_for_device catches OSError from a bare
+    # writeto and re-raises ValueError("No I2C device at address: 0x..") -- the field
+    # report this fixes had the try/except never fire because nothing was raised.
+    i2c = I2C(None, None)
+    i2c._bus.nack.add(0x3C)
+    try:
+        i2c.writeto(0x3C, b"")
+    except OSError:
+        pass
+    else:
+        pytest.fail("an address NACK must surface as OSError")
+
+
 def test_i2c_no_legacy_single_byte_api():
     # Strict parity: write/read single-byte helpers replaced by writeto/readfrom_into.
     i2c = I2C(None, None)
