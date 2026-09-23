@@ -302,3 +302,88 @@ status = "documented"
 quote = "does not ship separate `sys-stubs`/`time-stubs` packages"
 reason = "circuitpython-stubs 10.3.1 ships no time-stubs package; time is documented as CPython/typeshed-compatible instead."
 
+# -- __exit__ signature: the stubs declare (self), the runtime passes three --------
+
+[[deviation]]
+symbol = "analogio.AnalogIn.__exit__"
+status = "documented"
+quote = "they declare every context manager's `__exit__` as `(self)`"
+reason = "circuitpython-stubs simplify __exit__ to (self); CircuitPython calls it with (exc_type, exc_val, exc_tb) like CPython, and this layer takes the real three-argument signature."
+
+[[deviation]]
+symbol = "analogio.AnalogOut.__exit__"
+status = "documented"
+quote = "they declare every context manager's `__exit__` as `(self)`"
+reason = "circuitpython-stubs simplify __exit__ to (self); CircuitPython calls it with (exc_type, exc_val, exc_tb) like CPython, and this layer takes the real three-argument signature."
+
+[[deviation]]
+symbol = "bitbangio.I2C.__exit__"
+status = "documented"
+quote = "they declare every context manager's `__exit__` as `(self)`"
+reason = "circuitpython-stubs simplify __exit__ to (self); CircuitPython calls it with (exc_type, exc_val, exc_tb) like CPython, and this layer takes the real three-argument signature."
+
+[[deviation]]
+symbol = "bitbangio.SPI.__exit__"
+status = "documented"
+quote = "they declare every context manager's `__exit__` as `(self)`"
+reason = "circuitpython-stubs simplify __exit__ to (self); CircuitPython calls it with (exc_type, exc_val, exc_tb) like CPython, and this layer takes the real three-argument signature."
+
+[[deviation]]
+symbol = "busio.I2C.__exit__"
+status = "documented"
+quote = "they declare every context manager's `__exit__` as `(self)`"
+reason = "circuitpython-stubs simplify __exit__ to (self); CircuitPython calls it with (exc_type, exc_val, exc_tb) like CPython, and this layer takes the real three-argument signature."
+
+[[deviation]]
+symbol = "busio.SPI.__exit__"
+status = "documented"
+quote = "they declare every context manager's `__exit__` as `(self)`"
+reason = "circuitpython-stubs simplify __exit__ to (self); CircuitPython calls it with (exc_type, exc_val, exc_tb) like CPython, and this layer takes the real three-argument signature."
+
+[[deviation]]
+symbol = "busio.UART.__exit__"
+status = "documented"
+quote = "they declare every context manager's `__exit__` as `(self)`"
+reason = "circuitpython-stubs simplify __exit__ to (self); CircuitPython calls it with (exc_type, exc_val, exc_tb) like CPython, and this layer takes the real three-argument signature."
+
+[[deviation]]
+symbol = "countio.Counter.__exit__"
+status = "documented"
+quote = "they declare every context manager's `__exit__` as `(self)`"
+reason = "circuitpython-stubs simplify __exit__ to (self); CircuitPython calls it with (exc_type, exc_val, exc_tb) like CPython, and this layer takes the real three-argument signature."
+
+[[deviation]]
+symbol = "digitalio.DigitalInOut.__exit__"
+status = "documented"
+quote = "they declare every context manager's `__exit__` as `(self)`"
+reason = "circuitpython-stubs simplify __exit__ to (self); CircuitPython calls it with (exc_type, exc_val, exc_tb) like CPython, and this layer takes the real three-argument signature."
+
+[[deviation]]
+symbol = "keypad.Keys.__exit__"
+status = "documented"
+quote = "they declare every context manager's `__exit__` as `(self)`"
+reason = "circuitpython-stubs simplify __exit__ to (self); CircuitPython calls it with (exc_type, exc_val, exc_tb) like CPython, and this layer takes the real three-argument signature."
+
+[[deviation]]
+symbol = "pulseio.PulseIn.__exit__"
+status = "documented"
+quote = "they declare every context manager's `__exit__` as `(self)`"
+reason = "circuitpython-stubs simplify __exit__ to (self); CircuitPython calls it with (exc_type, exc_val, exc_tb) like CPython, and this layer takes the real three-argument signature."
+
+[[deviation]]
+symbol = "pulseio.PulseOut.__exit__"
+status = "documented"
+quote = "they declare every context manager's `__exit__` as `(self)`"
+reason = "circuitpython-stubs simplify __exit__ to (self); CircuitPython calls it with (exc_type, exc_val, exc_tb) like CPython, and this layer takes the real three-argument signature."
+
+[[deviation]]
+symbol = "pwmio.PWMOut.__exit__"
+status = "documented"
+quote = "they declare every context manager's `__exit__` as `(self)`"
+reason = "circuitpython-stubs simplify __exit__ to (self); CircuitPython calls it with (exc_type, exc_val, exc_tb) like CPython, and this layer takes the real three-argument signature."
+
+[[deviation]]
+symbol = "rotaryio.IncrementalEncoder.__exit__"
+status = "documented"
+quote = "they declare every context manager's `__exit__` as `(self)`"
+reason = "circuitpython-stubs simplify __exit__ to (self); CircuitPython calls it with (exc_type, exc_val, exc_tb) like CPython, and this layer takes the real three-argument signature."

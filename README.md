@@ -127,7 +127,10 @@ they are written: there is no AVR peripheral or runtime concept underneath them.
 package. That package does not ship separate `sys-stubs`/`time-stubs` packages: CircuitPython
 documents both modules as compatible with the equivalent CPython/typeshed modules rather than
 redocumenting them, so this repository's own module docs (above) are the parity reference for
-`sys` and `time` instead of a stub file.
+`sys` and `time` instead of a stub file. One place the stubs simplify rather than document:
+they declare every context manager's `__exit__` as `(self)`, while CircuitPython, like
+CPython, calls it with the three exception arguments `__exit__(self, exc_type, exc_val,
+exc_tb)`; this layer takes the real three-argument signature.
 
 ## Quick Start
 

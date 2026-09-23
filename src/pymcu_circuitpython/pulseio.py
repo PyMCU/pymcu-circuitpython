@@ -120,7 +120,7 @@ class PulseIn:
         return self
 
     @inline
-    def __exit__(self, *args):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         self.deinit()
 
 
@@ -158,5 +158,5 @@ class PulseOut:
         return self
 
     @inline
-    def __exit__(self, *args):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         self.deinit()
