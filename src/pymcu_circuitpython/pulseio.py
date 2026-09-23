@@ -20,7 +20,11 @@
 
 from pymcu.exceptions import CompileError
 from pymcu.types import uint8, uint16, uint32, inline, const
-from pymcu.hal.pulse import PulseCapture as _PulseCapture, PulseTrain as _PulseTrain
+from pymcu.hal.gpio import Pin as _Pin
+from pymcu.hal.pulse import (
+    PulseCapture as _PulseCapture, PulseTrain as _PulseTrain,
+    pulse_delay_us as _pulse_delay_us,
+)
 
 
 class PulseIn:
@@ -35,6 +39,9 @@ class PulseIn:
     @inline
     def __init__(self, pin, maxlen: const[uint16] = 2, idle_state: const[uint8] = 0):
         self._cap = _PulseCapture(pin, maxlen, idle_state)
+        # Kept for resume(trigger_duration): the trigger is a low pulse this object
+        # drives on the same pin before the capture starts listening again.
+        self._pin = _Pin(pin, _Pin.IN)
 
     @inline
     def __len__(self) -> uint16:
@@ -81,18 +88,21 @@ class PulseIn:
     def resume(self, trigger_duration: uint16 = 0):
         """Start recording again.
 
-        CircuitPython's `trigger_duration` sends a pulse on the pin first, to trigger a
-        sensor that answers on the same line. This pin is an input while it is being
-        measured, so there is nothing here to drive: a non-zero duration is refused rather
-        than accepted and dropped. Drive the trigger with a digitalio.DigitalInOut on the
-        pin before constructing the PulseIn, which is what a DHT driver does.
+        CircuitPython's `trigger_duration` sends a low pulse on the pin first, to wake a
+        sensor that answers on the same line (a DHT's start signal). The pin is turned
+        round for it: driven low for the duration, then released to input-with-pull-up --
+        which is also the moment the answer starts, so the capture is cleared and
+        resumed behind the release and none of the trigger's own edges are recorded.
         """
         if trigger_duration != 0:
-            raise CompileError(
-                "pulseio.PulseIn.resume() cannot send a trigger pulse: the pin is an input "
-                "while it is being measured and this HAL does not turn it round. Drive the "
-                "trigger yourself with a digitalio.DigitalInOut on the pin, then construct "
-                "or resume the PulseIn. Call resume() with no argument for the rest.")
+            self._cap.pause()
+            # PORT low first, then the direction flip: the line goes low without the
+            # high glitch a mode(OUT) on a pulled-up latch would put out.
+            self._pin.low()
+            self._pin.mode(_Pin.OUT)
+            _pulse_delay_us(trigger_duration)
+            self._pin.mode(_Pin.IN_PULLUP)
+            self._cap.clear()
         self._cap.resume()
 
     @property
