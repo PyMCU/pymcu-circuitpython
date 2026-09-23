@@ -33,18 +33,6 @@ status = "documented"
 quote = "there is no separate always-on RAM region to back a `SleepMemory`"
 reason = "No true deep sleep to persist memory across; the alarm functions block in place instead of restarting."
 
-[[deviation]]
-symbol = "alarm.exit_and_deep_sleep_until_alarms"
-status = "documented"
-quote = "Up to four alarms at once"
-reason = "Fixed alarm0..alarm3 parameters instead of *alarms: there is no heap for a variable-length argument list."
-
-[[deviation]]
-symbol = "alarm.light_sleep_until_alarms"
-status = "documented"
-quote = "Up to four alarms at once"
-reason = "Fixed alarm0..alarm3 parameters instead of *alarms: there is no heap for a variable-length argument list."
-
 # -- keypad -------------------------------------------------------------------
 
 [[deviation]]
@@ -313,3 +301,4 @@ symbol = "time.__stub__"
 status = "documented"
 quote = "does not ship separate `sys-stubs`/`time-stubs` packages"
 reason = "circuitpython-stubs 10.3.1 ships no time-stubs package; time is documented as CPython/typeshed-compatible instead."
+

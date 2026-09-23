@@ -6,5 +6,5 @@ import alarm
 import time
 
 time_alarm = alarm.time.TimeAlarm(monotonic_time=time.monotonic() + 5)
-fired = alarm.sleep_until_alarms(time_alarm)
+fired = alarm.light_sleep_until_alarms(time_alarm)
 print(fired)
