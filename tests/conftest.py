@@ -24,6 +24,9 @@ def _install_hal_mocks() -> None:
         OUT = 0
         OPEN_DRAIN = 2
         PULL_UP = 1
+        # In step with pymcu.hal.gpio.Pin: the input-with-pull-up mode PulseIn's
+        # trigger pulse releases the line into.
+        IN_PULLUP = 3
 
         def __init__(self, name, mode=1):
             # `name` and not `_name`: the real pymcu.hal.gpio.Pin stores it under the
@@ -349,6 +352,10 @@ def _install_hal_mocks() -> None:
         # `lines` is the level the bus pins read -- a test sets it to 0 to model a
         # bus with nothing pulling it up, which busio.I2C then refuses.
         lines = 1
+        # The most recently constructed bus: busio's writeto/readfrom reach the raw
+        # TWI driver in pymcu.hal.avr.i2c.avr, whose stub below delegates here, since
+        # the chip has the one peripheral.
+        current = None
         # start()/write() return the TWI status the hardware leaves in TWSR, so the
         # layer sees the same 0x08/0x18/0x28 ACKs and 0x20/0x30/0x48 NACKs the chip
         # would produce.
@@ -360,6 +367,7 @@ def _install_hal_mocks() -> None:
         SLA_R_ACK = 0x40
 
         def __init__(self, addr=0, general_call=0, freq=100000):
+            _MockI2C.current = self
             self._freq = freq
             # Test knobs: 7-bit addresses that NACK their SLA, a flag that NACKs
             # every data byte after an acknowledged address, and a wedged START.
@@ -418,7 +426,8 @@ def _install_hal_mocks() -> None:
     _reg("uart",     UART=_MockUART)
     _reg("adc",      AnalogPin=_MockAnalogPin)
     _reg("dac",      DACPin=_MockDACPin)
-    _reg("pulse",    PulseCapture=_MockPulseCapture, PulseTrain=_MockPulseTrain)
+    _reg("pulse",    PulseCapture=_MockPulseCapture, PulseTrain=_MockPulseTrain,
+         pulse_delay_us=lambda us: None)
     _reg("softi2c",  SoftI2C=_MockSoftI2C)
     _reg("softspi",  SoftSPI=_MockSoftSPI)
     _reg("counter",  EdgeCounter=_MockEdgeCounter)
@@ -428,6 +437,25 @@ def _install_hal_mocks() -> None:
     _reg("i2c",      I2C=_MockI2C)
     _reg("watchdog", Watchdog=MagicMock)
     _reg("wifi",     CYW43=MagicMock)
+
+    # pymcu.hal.avr.i2c.avr: busio's writeto/readfrom call the raw TWI driver at
+    # module level, not through the I2C instance -- its functions delegate to the
+    # MockI2C the test configured, the same way the real driver hits the one
+    # peripheral behind every instance.
+    avr = ModuleType("pymcu.hal.avr")
+    avr_i2c = ModuleType("pymcu.hal.avr.i2c")
+    avr_i2c_avr = ModuleType("pymcu.hal.avr.i2c.avr")
+    avr_i2c_avr.i2c_start = lambda: _MockI2C.current.start()
+    avr_i2c_avr.i2c_stop = lambda: _MockI2C.current.stop()
+    avr_i2c_avr.i2c_write = lambda data: _MockI2C.current.write(data)
+    avr_i2c_avr.i2c_read_ack = lambda: _MockI2C.current.read()
+    avr_i2c_avr.i2c_read_nack = lambda: _MockI2C.current.read()
+    sys.modules["pymcu.hal.avr"] = avr
+    sys.modules["pymcu.hal.avr.i2c"] = avr_i2c
+    sys.modules["pymcu.hal.avr.i2c.avr"] = avr_i2c_avr
+    hal.avr = avr
+    avr.i2c = avr_i2c
+    avr_i2c.avr = avr_i2c_avr
     # pymcu.hal.ws2812: the one-wire pixel emitter. The mock records what reached the
     # wire and in which order, which is the only thing about it a layer test can check --
     # the bit times are cycles, and those are measured in the emulator, not here

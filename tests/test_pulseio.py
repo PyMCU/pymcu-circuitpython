@@ -62,13 +62,17 @@ def test_pause_stops_recording_and_resume_starts_it():
     assert len(pulses) == 1
 
 
-def test_resume_with_a_trigger_duration_says_what_to_do_instead():
-    # The pin is an input while it is being measured, so there is nothing to drive. Refusing
-    # is the alternative to accepting the duration and dropping it.
+def test_resume_with_a_trigger_duration_drives_the_line_low_then_releases():
+    # CircuitPython's trigger_duration is the DHT start signal: the pin is turned
+    # round, driven low for the duration, then released to input-with-pull-up --
+    # and none of the trigger's own edges are recorded, because the capture is
+    # cleared behind the release.
     pulses = PulseIn("PD2", maxlen=8)
-    with pytest.raises(CompileError) as e:
-        pulses.resume(trigger_duration=100)
-    assert "digitalio" in str(e.value)
+    pulses._cap.feed(560)
+    pulses.resume(trigger_duration=100)
+    assert pulses._pin.mode() == 3       # Pin.IN_PULLUP, released after the low pulse
+    assert len(pulses) == 0              # the trigger's own edges are not recorded
+    assert pulses.paused == 0            # recording resumed behind the release
     pulses.resume()
 
 
