@@ -37,5 +37,6 @@
   "45_instance_class_attr.py": 350,
   "46_descriptor_get.py": 376,
   "47_print_tuple.py": 390,
-  "49_list_pins_driver.py": 176
+  "49_list_pins_driver.py": 176,
+  "50_alarm_submodules_variadic.py": 2286
 }
