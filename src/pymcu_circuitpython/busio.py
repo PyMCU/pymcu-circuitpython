@@ -106,7 +106,7 @@ class UART:
             self._hw.start_buffered_rx(receiver_buffer_size)
 
     @property
-    def baudrate(self) -> uint16:
+    def baudrate(self) -> uint32:
         """Current baud rate."""
         return self._baudrate
 
