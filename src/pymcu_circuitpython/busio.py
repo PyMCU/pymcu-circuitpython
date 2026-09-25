@@ -74,7 +74,7 @@ class UART:
         ODD  = 2
 
     @inline
-    def __init__(self, tx=None, rx=None, *, baudrate: uint16 = 9600, bits: uint8 = 8,
+    def __init__(self, tx=None, rx=None, *, baudrate: uint32 = 9600, bits: uint8 = 8,
                  parity=None, stop: uint8 = 1, timeout: uint16 = 1000,
                  receiver_buffer_size: const[uint16] = 64):
         # tx/rx accepted for API compatibility; the hardware pins are fixed on AVR
