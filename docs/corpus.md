@@ -24,7 +24,6 @@ gap/bug (issue in `PyMCU`). 13 distinct causes across the 20 programs; 6 new iss
 | 25_bitbang_i2c.py | bytearray() is a Python builtin that PyMCU does not provide | compiler bug: [PyMCU#380](https://github.com/PyMCU/PyMCU/issues/380) (new) |
 | 26_bitbang_spi.py | bytearray() is a Python builtin that PyMCU does not provide | compiler bug: [PyMCU#380](https://github.com/PyMCU/PyMCU/issues/380) (new) |
 | 28_pulseout_ir.py | Bit index must be constant for reading | compiler bug: [PyMCU#258](https://github.com/PyMCU/PyMCU/issues/258) (existing; same module-array-through-@inline defect, subscript path gives an even more misleading message than the for-loop path already filed) |
-| 32_pwm_variable_frequency.py | a PWM running at an exact frequency cannot be retuned at run time | layer gap: [pymcu-circuitpython#31](https://github.com/PyMCU/pymcu-circuitpython/issues/31) (new) |
 | 33_alarm_multiple.py | name 'alarm0' is not defined | compiler bug: [PyMCU#381](https://github.com/PyMCU/PyMCU/issues/381) (new) |
 | 36_analogout_refuse.py | this chip has no digital-to-analog converter | documented: `README.md:36,76` (`AnalogOut` needs a DAC, none on AVR) |
 | 37_uart_readline_refuse.py | busio.UART.readline() returns a bytes object | documented: `README.md:37,73-75` |
@@ -85,7 +84,7 @@ five already build in this corpus (`41_kwargs_base_class.py`, `42_except_as_e_ar
 | 29_countio_edges.py | build | build | 1180 |  |
 | 30_rainbowio_neopixel_write.py | build | build | 1172 |  |
 | 31_uart_7e1.py | build | build | 428 |  |
-| 32_pwm_variable_frequency.py | refuse a PWM running at an exact frequency cannot be retuned at run time | refuse |  | a PWM running at an exact frequency cannot be retuned at run time |
+| 32_pwm_variable_frequency.py | build | build | 586 | an exact Timer1 channel is retuned at run time and keeps its duty cycle ([pymcu-circuitpython#31](https://github.com/PyMCU/pymcu-circuitpython/issues/31)) |
 | 33_alarm_multiple.py | refuse name 'alarm0' is not defined | refuse |  | name 'alarm0' is not defined |
 | 34_nvm_counter.py | build | build | 580 |  |
 | 35_cpu_temperature.py | build | build | 2750 |  |
@@ -103,3 +102,4 @@ five already build in this corpus (`41_kwargs_base_class.py`, `42_except_as_e_ar
 | 47_print_tuple.py | build | build | 366 |  |
 | 48_class_field_dict_lists.py | refuse array index must be an integer | refuse |  | array index must be an integer |
 | 49_list_pins_driver.py | build | build | 140 |  |
+| 52_pwm_variable_frequency_sibling_exact_refuse.py | refuse Timer1 period (PB1 and PB2 share ICR1) | refuse |  | retuning D9 would retune D10, which also runs at an exact frequency |

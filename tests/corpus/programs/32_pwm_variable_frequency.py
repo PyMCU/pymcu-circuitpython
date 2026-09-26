@@ -1,4 +1,4 @@
-# expect: refuse a PWM running at an exact frequency cannot be retuned at run time
+# expect: build
 # source: CircuitPython pwmio PWMOut variable frequency property style
 import time
 import board
