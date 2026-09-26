@@ -1,6 +1,10 @@
 # Changelog — pymcu-circuitpython
 
-## Unreleased
+## 0.1.0b1 (re-frozen from main, 2026-09-26)
+
+Beta 1 was first frozen on 2026-09-15 and the freeze was re-taken from main
+on 2026-09-26. These entries and the section below it are one release, split
+only by when the work landed.
 
 ### Fixed
 
@@ -17,7 +21,7 @@
 - **bitbangio**: `I2C` follows the same contract on the software bus, reading the ACK bit
   the HAL bit-bang returns (0 = ACK).
 
-## 0.1.0b1 (frozen at 552e44c, 2026-09-15)
+## 0.1.0b1 (as frozen at 552e44c on 2026-09-15)
 
 Beta 1: this layer moves out of alpha alongside the frontend
 (`pymcu-compiler`/`pymcu-stdlib` 0.1.0b1) and the AVR backend
