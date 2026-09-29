@@ -1,5 +1,19 @@
 # Changelog — pymcu-circuitpython
 
+## 0.1.0b1 (re-frozen from main, 2026-09-29)
+
+Beta 1 ships from `main` at `e5d3238` today. One commit landed since the
+2026-09-26 re-freeze:
+
+### Tests
+
+- **corpus**: `pwmio`'s variable-frequency PWM idiom (`32_pwm_variable_frequency`,
+  the CircuitPython buzzer pattern of retuning an exact Timer1 channel at run time
+  while keeping its duty cycle) now builds instead of being pinned as a refusal, and
+  a sibling program pins the still-refused case (two exact-frequency channels sharing
+  Timer1's `ICR1`). Both measured against `pymcu-compiler` main's stdlib, both front
+  ends.
+
 ## 0.1.0b1 (re-frozen from main, 2026-09-26)
 
 Beta 1 was first frozen on 2026-09-15 and the freeze was re-taken from main
