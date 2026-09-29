@@ -32,7 +32,7 @@
   "34_nvm_counter.py": 526,
   "35_cpu_temperature.py": 2010,
   "41_kwargs_base_class.py": 362,
-  "42_except_as_e_args.py": 384,
+  "42_except_as_e_args.py": 460,
   "43_optional_annotation_none.py": 184,
   "44_module_float_constant.py": 1750,
   "45_instance_class_attr.py": 350,
