@@ -2,8 +2,22 @@
 
 ## 0.1.0b1 (re-frozen from main, 2026-09-29)
 
-Beta 1 ships from `main` at `e5d3238` today. One commit landed since the
+Beta 1 ships from `main` at `f8677cc` today. Three commits landed since the
 2026-09-26 re-freeze:
+
+### Fixed
+
+- **corpus**: `42_except_as_e_args` (`try: raise RuntimeError("Timed out") except
+  RuntimeError as e: print(e.args[0])`) is re-baselined from 384 to 460 bytes. The growth
+  is real and accepted, not a regression: `#369`'s `e.args` support and
+  `pymcu-compiler`'s float32 print/str/repr fix both landed since the 384-byte baseline
+  was recorded, and the size gate is a snapshot of the compiler's output, not an
+  invariant this program alone owes.
+- **corpus**: every program that prints a `float` is re-baselined after
+  `pymcu-compiler`'s float print policy fix (two fixed decimals, silently wrong, replaced
+  by MicroPython's real algorithm): 4 corpus programs grow by roughly 4 KB each, the cost
+  of the first `_f32_repr`/`_f32_scale` call in a program that did not already pay for a
+  string-formatting runtime.
 
 ### Tests
 
