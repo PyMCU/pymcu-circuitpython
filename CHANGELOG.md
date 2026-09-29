@@ -9,10 +9,17 @@ Beta 1 ships from `main` at `f8677cc` today. Three commits landed since the
 
 - **corpus**: `42_except_as_e_args` (`try: raise RuntimeError("Timed out") except
   RuntimeError as e: print(e.args[0])`) is re-baselined from 384 to 460 bytes. The growth
-  is real and accepted, not a regression: `#369`'s `e.args` support and
-  `pymcu-compiler`'s float32 print/str/repr fix both landed since the 384-byte baseline
-  was recorded, and the size gate is a snapshot of the compiler's output, not an
-  invariant this program alone owes.
+  is real and accepted, not a regression, and not related to floats: this program prints
+  no float. Before `pymcu-compiler`'s fix (79c7d411/3a0623c7/23135d73), `e.args[0]` on a
+  raise with no message printed garbage, the interrupt vector table's own bytes, instead
+  of raising `IndexError: tuple index out of range` the way CPython does. The fix adds
+  that check, the "tuple index out of range" string, and an `E:IndexError` dispatcher
+  entry. This program's own `raise RuntimeError("Timed out")` always carries a message,
+  so its `args[0]` never actually raises, but the compiler cannot prove that no reachable
+  raise in the program reaches this handler without one, so every handler reading
+  `e.args[0]` pays for the check regardless. A follow-up fix in the same window
+  (`print(e.args[0])` no longer asking twice whether the raise carried a message) trimmed
+  6 bytes back off (466 to 460).
 - **corpus**: every program that prints a `float` is re-baselined after
   `pymcu-compiler`'s float print policy fix (two fixed decimals, silently wrong, replaced
   by MicroPython's real algorithm): 4 corpus programs grow by roughly 4 KB each, the cost
