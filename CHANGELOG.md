@@ -1,5 +1,21 @@
 # Changelog — pymcu-circuitpython
 
+## 0.1.0b1 (re-frozen from main, 2026-09-30)
+
+Beta 1 ships from `main` at `4fa38d6` today. One commit landed since the
+2026-09-29 re-freeze:
+
+### Tests
+
+- **corpus**: re-baselined every program's size after `pymcu-compiler`'s RFC 0013
+  phase 0 fix (every object of static duration is now zeroed at boot, matching what
+  a real ATmega328P needs and an emulator that always started fresh state at zero
+  used to hide). A program that keeps static state in SRAM pays the clear loop once,
+  about +24 bytes (`02_button_pullup` 178 to 204, `21_digitalio_context` 170 to 194),
+  plus 2 bytes per register that homes static state (`03_pwm_fade`, `04_servo_sweep`
+  up to +38 bytes). A handful of programs moved down instead, from unrelated
+  compiler work landed since the last baseline.
+
 ## 0.1.0b1 (re-frozen from main, 2026-09-29)
 
 Beta 1 ships from `main` at `f8677cc` today. Three commits landed since the
