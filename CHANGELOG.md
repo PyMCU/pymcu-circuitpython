@@ -5,6 +5,14 @@
 Beta 1 ships from `main` at `4fa38d6` today. One commit landed since the
 2026-09-29 re-freeze:
 
+### Hardware validation
+
+Two unmodified Adafruit libraries ran through this layer on a real Arduino Uno
+with the beta 1 compiler: `adafruit_ssd1306` (with `adafruit_framebuf` and
+`adafruit_bus_device`, over `busio.I2C`) and `adafruit_hcsr04` (its own simpletest).
+Every other Adafruit library figure for this release comes from compilation and
+the AVR emulator, not from a board.
+
 ### Tests
 
 - **corpus**: re-baselined every program's size after `pymcu-compiler`'s RFC 0013
