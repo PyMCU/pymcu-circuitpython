@@ -108,9 +108,14 @@ def _rp_uart_tx_id(pin) -> int16:
     # derives the instance from the pins the same way): TX pads sit at
     # (pin & 3) == 0 on the RP2040 and at every even pin on the RP2350, and the
     # UART id is bit 3 of pin + 4 in both. -1 means the pin is no TX pad at all.
+    # On the RP2350 a pad numbered 2 mod 4 reaches its UART only through
+    # GPIO_FUNC_UART_AUX, which the rp2350 HAL never writes -- a UART accepted
+    # on GP2 would drive nothing, so those pads report -2 and get refused.
     if __CHIP__.name == "rp2350":
         if pin < 0 or pin > 47 or pin & 1:
             return -1
+        if pin & 3 == 2:
+            return -2
     elif pin < 0 or pin > 29 or pin & 3:
         return -1
     return (pin + 4) >> 3 & 1
@@ -123,6 +128,8 @@ def _rp_uart_rx_id(pin) -> int16:
     if __CHIP__.name == "rp2350":
         if pin < 0 or pin > 47 or (pin & 1) == 0:
             return -1
+        if pin & 3 == 3:
+            return -2
     elif pin < 0 or pin > 29 or (pin & 3) != 1:
         return -1
     return (pin + 4) >> 3 & 1
@@ -166,6 +173,20 @@ class UART:
             # UART1 (GP4/GP5 on an RP2040) is refused -- silently muxing those
             # pads while writing the UART0 registers would drive nothing, which
             # is what happened here.
+            if _rp_uart_tx_id(tx) == -2:
+                raise CompileError(
+                    "busio.UART: on the RP2350 a pad numbered 2 mod 4 reaches "
+                    "its UART only through GPIO_FUNC_UART_AUX, which this HAL "
+                    "never writes -- the pin would mux to a function that is "
+                    "not the UART. Pick a TX pad numbered 0 mod 4 instead "
+                    "(GP0, GP12, GP16, GP28 for UART0).")
+            if _rp_uart_rx_id(rx) == -2:
+                raise CompileError(
+                    "busio.UART: on the RP2350 a pad numbered 3 mod 4 reaches "
+                    "its UART only through GPIO_FUNC_UART_AUX, which this HAL "
+                    "never writes -- the pin would mux to a function that is "
+                    "not the UART. Pick an RX pad numbered 1 mod 4 instead "
+                    "(GP1, GP13, GP17, GP29 for UART0).")
             if _rp_uart_tx_id(tx) < 0:
                 raise CompileError(
                     "busio.UART: tx is not a UART transmit pad on this chip "
