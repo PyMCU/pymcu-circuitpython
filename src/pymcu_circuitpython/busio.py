@@ -81,6 +81,8 @@ def _timeout_ms(timeout) -> uint16:
     # the upstream default 1.0 reads back as 1.0. The value is stored as uint16
     # milliseconds, which is what the two HALs' timed reads take -- so a value
     # past 65.535 s (or a negative one) cannot be represented and is refused.
+    # Upstream assigns timeout * 1000 straight into an integer field, which
+    # TRUNCATES: 0.0005 s stores 0 ms, not 1 -- so does this.
     if timeout is None:
         raise CompileError(
             "busio.UART: timeout is a number of seconds; None is not one. "
@@ -92,12 +94,12 @@ def _timeout_ms(timeout) -> uint16:
             raise CompileError(
                 "busio.UART: timeout is a number of seconds -- this layer holds "
                 "it as uint16 milliseconds, so it cannot go past 65.535 s.")
-        return uint16(timeout * 1000.0 + 0.5)
+        return uint16(timeout * 1000.0)
     if timeout < 0.0 or timeout > 65.535:
         raise CompileError(
             "busio.UART: timeout is a number of seconds -- this layer holds it "
             "as uint16 milliseconds, so it cannot go past 65.535 s.")
-    return uint16(timeout * 1000.0 + 0.5)
+    return uint16(timeout * 1000.0)
 
 
 @inline

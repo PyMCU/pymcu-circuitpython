@@ -85,6 +85,20 @@ def test_timeout_setter_takes_the_same_spellings():
     assert u._timeout == 30000
 
 
+def test_timeout_truncates_like_circuitpython():
+    # Upstream assigns timeout * 1000 into the integer field, which truncates:
+    # half a millisecond stores 0, and 1.9 ms stores 1 -- never rounded up.
+    u = UART(None, None, baudrate=9600, timeout=0.0005)
+    assert u._timeout == 0
+    u = UART(None, None, baudrate=9600, timeout=0.0019)
+    assert u._timeout == 1
+    u = UART(None, None, baudrate=9600, timeout=1.2345)
+    assert u._timeout == 1234
+    u.timeout = 0.0029
+    assert u._timeout == 2
+    assert u.timeout == 0.002
+
+
 def test_timeout_beyond_the_uint16_field_is_refused():
     with pytest.raises(CompileError):
         UART(None, None, baudrate=9600, timeout=66.0)
