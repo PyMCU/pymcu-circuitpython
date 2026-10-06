@@ -1,0 +1,21 @@
+[project]
+name = "game-of-life-oled"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "pymcu-stdlib>=0.1.0a1",
+    "pymcu-compiler[avr]>=0.1.0a1",
+    "pymcu-circuitpython>=0.1.0a1",
+]
+
+[tool.pymcu]
+board     = "arduino_uno"
+frequency = 16000000
+sources   = "src"
+entry     = "main.py"
+stdlib    = ["circuitpython"]
+files     = ["font5x8.bin"]
+
+[tool.pymcu.flash]
+programmer = "avrdude"
+# port = "/dev/cu.usbmodemXXXX"   # set your board port here, or pass --port
