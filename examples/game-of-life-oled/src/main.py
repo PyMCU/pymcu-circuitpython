@@ -4,12 +4,12 @@ import time
 import board
 import adafruit_ssd1306
 
-CELL = 4
+CELL = 8
 SEED = 20260921
 
 # Display initialization
 i2c = board.I2C()
-display = adafruit_ssd1306.SSD1306_I2C(128, 32, i2c)
+display = adafruit_ssd1306.SSD1306_I2C(128, 64, i2c)
 
 
 class Life:
@@ -74,7 +74,7 @@ class Life:
         display.show()
 
 
-life = Life(32, 8, SEED)
+life = Life(16, 8, SEED)
 life.seed()
 life.draw(display)
 generation = 0
