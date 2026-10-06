@@ -61,15 +61,20 @@ def test_timeout_float_is_seconds():
     assert u._timeout == 100
 
 
-def test_timeout_int_is_milliseconds():
-    # The int spelling stays milliseconds, the convention this layer has always had.
+def test_timeout_int_is_seconds_too():
+    # CircuitPython feeds every number through mp_obj_get_float: timeout=1 is
+    # one second, not one millisecond.
     u = UART(None, None, baudrate=9600, timeout=20)
-    assert u._timeout == 20
+    assert u._timeout == 20000
+    u = UART(None, None, baudrate=9600, timeout=1)
+    assert u._timeout == 1000
 
 
 def test_timeout_getter_reads_back_seconds():
     u = UART(None, None, baudrate=9600, timeout=0.1)
     assert u.timeout == 0.1
+    u = UART(None, None, baudrate=9600, timeout=1)
+    assert u.timeout == 1.0
 
 
 def test_timeout_setter_takes_the_same_spellings():
@@ -77,14 +82,14 @@ def test_timeout_setter_takes_the_same_spellings():
     u.timeout = 0.05
     assert u._timeout == 50
     u.timeout = 30
-    assert u._timeout == 30
+    assert u._timeout == 30000
 
 
 def test_timeout_beyond_the_uint16_field_is_refused():
     with pytest.raises(CompileError):
         UART(None, None, baudrate=9600, timeout=66.0)
     with pytest.raises(CompileError):
-        UART(None, None, baudrate=9600, timeout=70000)
+        UART(None, None, baudrate=9600, timeout=66)
     u = UART(None, None, baudrate=9600)
     with pytest.raises(CompileError):
         u.timeout = 100.0

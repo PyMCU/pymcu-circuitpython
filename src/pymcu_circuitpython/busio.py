@@ -76,22 +76,28 @@ class Parity:
 
 @inline
 def _timeout_ms(timeout) -> uint16:
-    # `timeout` speaks two spellings. A float is CircuitPython seconds (the
-    # upstream default is 1.0 s), so timeout=0.1 must mean 100 ms and never
-    # truncate to 0. An int is this layer's milliseconds, the spelling the port
-    # has always had. Both land as uint16 milliseconds.
-    if isinstance(timeout, float):
-        if timeout < 0.0 or timeout > 65.535:
-            raise CompileError(
-                "busio.UART: timeout given in seconds (float) -- this layer holds it "
-                "as uint16 milliseconds, so it cannot go past 65.535 s.")
-        return uint16(timeout * 1000.0 + 0.5)
-    if timeout < 0 or timeout > 65535:
+    # CircuitPython coerces the timeout with mp_obj_get_float, so EVERY numeric
+    # spelling is seconds: timeout=1 is one second, timeout=0.1 is 100 ms, and
+    # the upstream default 1.0 reads back as 1.0. The value is stored as uint16
+    # milliseconds, which is what the two HALs' timed reads take -- so a value
+    # past 65.535 s (or a negative one) cannot be represented and is refused.
+    if timeout is None:
         raise CompileError(
-            "busio.UART: timeout given in milliseconds (int) -- the field is a "
-            "uint16, so it cannot go past 65535 ms. A float value is seconds, "
-            "if that is what was meant.")
-    return timeout
+            "busio.UART: timeout is a number of seconds; None is not one. "
+            "Pass a float or an int.")
+    if isinstance(timeout, int):
+        # An int can only reach the field when it fits: 66 s is already past
+        # 65535 ms, so 65 is the largest whole number that compiles.
+        if timeout < 0 or timeout > 65:
+            raise CompileError(
+                "busio.UART: timeout is a number of seconds -- this layer holds "
+                "it as uint16 milliseconds, so it cannot go past 65.535 s.")
+        return uint16(timeout * 1000.0 + 0.5)
+    if timeout < 0.0 or timeout > 65.535:
+        raise CompileError(
+            "busio.UART: timeout is a number of seconds -- this layer holds it "
+            "as uint16 milliseconds, so it cannot go past 65.535 s.")
+    return uint16(timeout * 1000.0 + 0.5)
 
 
 class UART:
@@ -195,16 +201,18 @@ class UART:
     def timeout(self) -> float:
         """Read timeout in seconds (a float, as in CircuitPython).
 
-        Stored as uint16 milliseconds: a float is seconds (upstream's spelling,
-        `uart.timeout = 0.1` is 100 ms) and an int is milliseconds.
+        Stored as uint16 milliseconds; every numeric spelling is seconds
+        (upstream coerces with mp_obj_get_float), so `timeout = 1` is one
+        second and `timeout = 0.1` is 100 ms.
         """
         return self._timeout / 1000.0
 
     @timeout.setter
     def timeout(self, value: const):
-        # The same two spellings the constructor takes: float seconds, int ms.
-        # The value must be a compile-time constant so a float beyond the field's
-        # reach is refused here, at compile time, instead of trapping at runtime.
+        # The same seconds spelling the constructor takes (an int is seconds
+        # too, like upstream). The value must be a compile-time constant so a
+        # number beyond the field's reach is refused here, at compile time,
+        # instead of trapping at runtime.
         self._timeout = _timeout_ms(value)
 
     @inline
