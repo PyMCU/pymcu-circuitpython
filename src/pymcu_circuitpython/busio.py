@@ -42,6 +42,8 @@
 # On AVR the bus pins are fixed in hardware (ATmega328P: UART PD1/PD0, I2C PC5/PC4,
 # SPI PB5/PB3/PB4); the pin arguments are accepted for API compatibility.
 
+from typing import Optional
+
 from pymcu.chips import __CHIP__
 from pymcu.exceptions import CompileError
 from pymcu.types import uint8, uint16, uint32, int16, inline, const
@@ -54,6 +56,10 @@ if __CHIP__.arch == "avr":
         i2c_read_ack as _hal_i2c_read_ack, i2c_read_nack as _hal_i2c_read_nack,
     )
     from pymcu.hal.spi import SPI as _SPI
+else:
+    # On the ARM ports the UART HAL has no timed read: readinto polls the RX flag
+    # against the free-running microsecond TIMER instead (no init needed there).
+    from pymcu.time import micros as _micros
 
 
 # The parities, at module level. CircuitPython keeps them nested inside UART and spells them
@@ -68,6 +74,26 @@ class Parity:
     ODD  = 2
 
 
+@inline
+def _timeout_ms(timeout) -> uint16:
+    # `timeout` speaks two spellings. A float is CircuitPython seconds (the
+    # upstream default is 1.0 s), so timeout=0.1 must mean 100 ms and never
+    # truncate to 0. An int is this layer's milliseconds, the spelling the port
+    # has always had. Both land as uint16 milliseconds.
+    if isinstance(timeout, float):
+        if timeout < 0.0 or timeout > 65.535:
+            raise CompileError(
+                "busio.UART: timeout given in seconds (float) -- this layer holds it "
+                "as uint16 milliseconds, so it cannot go past 65.535 s.")
+        return uint16(timeout * 1000.0 + 0.5)
+    if timeout < 0 or timeout > 65535:
+        raise CompileError(
+            "busio.UART: timeout given in milliseconds (int) -- the field is a "
+            "uint16, so it cannot go past 65535 ms. A float value is seconds, "
+            "if that is what was meant.")
+    return timeout
+
+
 class UART:
     class Parity:
         EVEN = 1
@@ -75,7 +101,7 @@ class UART:
 
     @inline
     def __init__(self, tx=None, rx=None, *, baudrate: uint32 = 9600, bits: uint8 = 8,
-                 parity=None, stop: uint8 = 1, timeout: uint16 = 1000,
+                 parity=None, stop: uint8 = 1, timeout: const = 1.0,
                  receiver_buffer_size: const[uint16] = 64):
         # tx/rx accepted for API compatibility; the hardware pins are fixed on AVR
         # (ATmega328P PD1=TX, PD0=RX) and configured inside _UART.__init__.
@@ -86,13 +112,35 @@ class UART:
         # parity=None is the CircuitPython spelling for no parity, and the HAL numbers no
         # parity 0. The translation is a match and not a local because the HAL needs the
         # value at compile time, and an annotated local is materialised and stops being one.
+        if __CHIP__.arch != "avr":
+            # CircuitPython refuses a UART with neither pad; this port must refuse
+            # either missing one, too: the rp UART HAL routes exactly the pads it is
+            # handed and can wire no tx-only or rx-only half, so a None can never fall
+            # through to GP0/GP1 defaults the caller never named.
+            if tx is None and rx is None:
+                raise CompileError(
+                    "busio.UART: tx and rx cannot both be None -- at least one pad "
+                    "must be wired (CircuitPython refuses this the same way).")
+            if tx is None or rx is None:
+                raise CompileError(
+                    "busio.UART: this chip's UART HAL routes both the tx and the rx "
+                    "pad it is given; a tx-only or rx-only UART is not expressible "
+                    "here -- pass both pins.")
         match parity:
             case None:
-                self._hw = _UART(baudrate, bits, 0, stop)
+                if __CHIP__.arch == "avr":
+                    self._hw = _UART(baudrate, bits, 0, stop)
+                else:
+                    # The RP2040/RP2350 UART HAL takes the pads in second and third
+                    # place and routes them.
+                    self._hw = _UART(baudrate, tx, rx, bits, 0, stop)
             case _:
-                self._hw = _UART(baudrate, bits, parity, stop)
+                if __CHIP__.arch == "avr":
+                    self._hw = _UART(baudrate, bits, parity, stop)
+                else:
+                    self._hw = _UART(baudrate, tx, rx, bits, parity, stop)
         self._baudrate = baudrate
-        self._timeout  = timeout
+        self._timeout  = _timeout_ms(timeout)
 
         # CircuitPython's UART buffers received bytes, which is what makes in_waiting a
         # count and not a flag. The HAL has the ring and the interrupt that fills it; asking
@@ -102,8 +150,20 @@ class UART:
         # layer does not know how big it is and must not have to.
         self._buffered = 0
         if receiver_buffer_size > 1:
-            self._buffered = 1
-            self._hw.start_buffered_rx(receiver_buffer_size)
+            if __CHIP__.arch == "avr":
+                self._buffered = 1
+                self._hw.start_buffered_rx(receiver_buffer_size)
+            elif receiver_buffer_size > 32:
+                # On RP the receive buffer is the PL011's own 32-entry hardware
+                # FIFO -- there is no interrupt-driven ring to deepen it, so a
+                # request for more than 32 bytes cannot be honoured. Anything up
+                # to 32 is already true: bytes that land while the program is
+                # elsewhere sit in the FIFO until read.
+                raise CompileError(
+                    "busio.UART on this chip buffers received bytes in the UART's "
+                    "32-entry hardware FIFO -- the interrupt-driven ring that would "
+                    "deepen it exists only on the AVR HAL. Pass a "
+                    "receiver_buffer_size of 32 or less.")
 
     @property
     def baudrate(self) -> uint32:
@@ -118,23 +178,34 @@ class UART:
         (`receiver_buffer_size=1`) it is 0 or 1, because the hardware holds one byte and has
         no count to give.
         """
-        if self._buffered == 1:
-            return self._hw.rx_count()
-        return self._hw.available()
+        if __CHIP__.arch == "avr":
+            if self._buffered == 1:
+                return self._hw.rx_count()
+            return self._hw.available()
+        else:
+            # The rp UART FIFO reports only empty-or-not -- no count. Answering
+            # 0-or-1 as if it were a count would report 1 for two queued bytes,
+            # a number that is false, so the property refuses on this port.
+            raise CompileError(
+                "busio.UART.in_waiting is a byte count and this chip's UART FIFO "
+                "reports only empty-or-not -- it cannot count. Poll readinto() "
+                "instead; it reports how many bytes it actually got.")
 
     @property
-    def timeout(self) -> uint16:
-        """Read timeout in milliseconds.
+    def timeout(self) -> float:
+        """Read timeout in seconds (a float, as in CircuitPython).
 
-        CircuitPython spells it in seconds as a float; this layer has no float in a
-        parameter default, so it is milliseconds here. `readinto` honours it: it used to
-        block for ever, whatever this said.
+        Stored as uint16 milliseconds: a float is seconds (upstream's spelling,
+        `uart.timeout = 0.1` is 100 ms) and an int is milliseconds.
         """
-        return self._timeout
+        return self._timeout / 1000.0
 
     @timeout.setter
-    def timeout(self, value: uint16):
-        self._timeout = value
+    def timeout(self, value: const):
+        # The same two spellings the constructor takes: float seconds, int ms.
+        # The value must be a compile-time constant so a float beyond the field's
+        # reach is refused here, at compile time, instead of trapping at runtime.
+        self._timeout = _timeout_ms(value)
 
     @inline
     def write(self, buf) -> uint16:
@@ -150,23 +221,37 @@ class UART:
         return n
 
     @inline
-    def readinto(self, buf) -> uint16:
+    def readinto(self, buf) -> Optional[uint16]:
         """Read bytes into `buf` until it is full or the timeout passes.
 
-        Returns how many bytes were actually read, which is what CircuitPython returns and
-        what tells a caller the read was short. It used to fill the buffer by blocking on
-        each byte for ever, so a sensor that stopped answering hung the program.
+        Returns how many bytes were actually read, which is what tells a caller the
+        read was short -- None when the timeout ran out before the first byte, as
+        CircuitPython returns. The AVR port still answers 0 there; only ports whose
+        inline expansion can carry the Optional answer None (the ARM ones do).
         """
         n: uint16 = 0
         for i, _ in enumerate(buf):
-            b: int16 = -1
-            if self._buffered == 1:
-                b = self._hw.rx_read_timeout(self._timeout)
+            if __CHIP__.arch == "avr":
+                b: int16 = -1
+                if self._buffered == 1:
+                    b = self._hw.rx_read_timeout(self._timeout)
+                else:
+                    b = self._hw.read_timeout(self._timeout)
+                if b < 0:
+                    return n
+                buf[i] = b & 0xFF
             else:
-                b = self._hw.read_timeout(self._timeout)
-            if b < 0:
-                return n
-            buf[i] = b & 0xFF
+                # This port's UART HAL has no timed read (and no RX ring, so
+                # _buffered is always 0 here). Poll the RX-not-empty flag against
+                # the free-running microsecond TIMER until the byte lands or the
+                # timeout passes; the unsigned difference wraps safely.
+                start_us: uint32 = _micros()
+                while self._hw.available() == 0:
+                    if _micros() - start_us >= uint32(self._timeout) * 1000:
+                        if n == 0:
+                            return None
+                        return n
+                buf[i] = self._hw.read()
             n = n + 1
         return n
 
