@@ -222,133 +222,143 @@ class UART:
 # compiled only when a caller actually slices -- a program that never does pays
 # nothing for it. The raise paths share the _i2c_fail_* stubs so the message
 # store and error return are emitted once per failure kind, not once per site.
-# The bodies call the HAL primitives the module import binds for the chip, so
-# they carry no per-function arch check -- a port that supplies the same names
-# under the one gate above gets these bodies unchanged.
+# The bodies call the HAL primitives the module import binds for the chip.
+# Ports that bind nothing (everything but AVR today) cannot compile them at
+# all -- the primitives are undefined names there -- so each body sits behind
+# the same arch check the import does and folds away unused on those ports,
+# where the busio classes refuse construction instead.
 def _i2c_fail_io():
-    _hal_i2c_stop()
-    raise OSError("[Errno 5] Input/output error")
+    if __CHIP__.arch == "avr":
+        _hal_i2c_stop()
+        raise OSError("[Errno 5] Input/output error")
 
 
 def _i2c_fail_nodev():
-    _hal_i2c_stop()
-    raise OSError("[Errno 19] No such device")
+    if __CHIP__.arch == "avr":
+        _hal_i2c_stop()
+        raise OSError("[Errno 19] No such device")
 
 
 def _i2c_writeto(address: uint8, buffer, n: uint16):
-    st: uint8 = _hal_i2c_start()
-    if st != _I2C.START and st != _I2C.RESTART:
-        _i2c_fail_io()
-    if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
-        _i2c_fail_nodev()
-    k: uint16 = 0
-    while k < n:
-        if _hal_i2c_write(buffer[k]) != _I2C.DATA_ACK:
+    if __CHIP__.arch == "avr":
+        st: uint8 = _hal_i2c_start()
+        if st != _I2C.START and st != _I2C.RESTART:
             _i2c_fail_io()
-        k = k + 1
-    _hal_i2c_stop()
+        if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
+            _i2c_fail_nodev()
+        k: uint16 = 0
+        while k < n:
+            if _hal_i2c_write(buffer[k]) != _I2C.DATA_ACK:
+                _i2c_fail_io()
+            k = k + 1
+        _hal_i2c_stop()
 
 
 def _i2c_writeto_window(address: uint8, buffer, start: uint16, end: uint16):
-    st: uint8 = _hal_i2c_start()
-    if st != _I2C.START and st != _I2C.RESTART:
-        _i2c_fail_io()
-    if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
-        _i2c_fail_nodev()
-    i: uint16 = start
-    while i < end:
-        if _hal_i2c_write(buffer[i]) != _I2C.DATA_ACK:
+    if __CHIP__.arch == "avr":
+        st: uint8 = _hal_i2c_start()
+        if st != _I2C.START and st != _I2C.RESTART:
             _i2c_fail_io()
-        i = i + 1
-    _hal_i2c_stop()
+        if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
+            _i2c_fail_nodev()
+        i: uint16 = start
+        while i < end:
+            if _hal_i2c_write(buffer[i]) != _I2C.DATA_ACK:
+                _i2c_fail_io()
+            i = i + 1
+        _hal_i2c_stop()
 
 
 def _i2c_readfrom(address: uint8, buffer, n: uint16):
-    st: uint8 = _hal_i2c_start()
-    if st != _I2C.START and st != _I2C.RESTART:
-        _i2c_fail_io()
-    if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
-        _i2c_fail_nodev()
-    if n > 0:
-        last: uint16 = n - 1
-        k: uint16 = 0
-        while k < last:
-            buffer[k] = _hal_i2c_read_ack()
-            k = k + 1
-        buffer[last] = _hal_i2c_read_nack()
-    _hal_i2c_stop()
+    if __CHIP__.arch == "avr":
+        st: uint8 = _hal_i2c_start()
+        if st != _I2C.START and st != _I2C.RESTART:
+            _i2c_fail_io()
+        if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
+            _i2c_fail_nodev()
+        if n > 0:
+            last: uint16 = n - 1
+            k: uint16 = 0
+            while k < last:
+                buffer[k] = _hal_i2c_read_ack()
+                k = k + 1
+            buffer[last] = _hal_i2c_read_nack()
+        _hal_i2c_stop()
 
 
 def _i2c_readfrom_window(address: uint8, buffer, start: uint16, n: uint16):
-    st: uint8 = _hal_i2c_start()
-    if st != _I2C.START and st != _I2C.RESTART:
-        _i2c_fail_io()
-    if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
-        _i2c_fail_nodev()
-    if n > 0:
-        last: uint16 = n - 1
-        k: uint16 = 0
-        while k < last:
-            buffer[start + k] = _hal_i2c_read_ack()
-            k = k + 1
-        buffer[start + last] = _hal_i2c_read_nack()
-    _hal_i2c_stop()
+    if __CHIP__.arch == "avr":
+        st: uint8 = _hal_i2c_start()
+        if st != _I2C.START and st != _I2C.RESTART:
+            _i2c_fail_io()
+        if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
+            _i2c_fail_nodev()
+        if n > 0:
+            last: uint16 = n - 1
+            k: uint16 = 0
+            while k < last:
+                buffer[start + k] = _hal_i2c_read_ack()
+                k = k + 1
+            buffer[start + last] = _hal_i2c_read_nack()
+        _hal_i2c_stop()
 
 
 def _i2c_writeto_then_readfrom(address: uint8, out_buffer, out_n: uint16,
                                in_buffer, in_n: uint16):
-    st: uint8 = _hal_i2c_start()
-    if st != _I2C.START and st != _I2C.RESTART:
-        _i2c_fail_io()
-    if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
-        _i2c_fail_nodev()
-    i: uint16 = 0
-    while i < out_n:
-        if _hal_i2c_write(out_buffer[i]) != _I2C.DATA_ACK:
+    if __CHIP__.arch == "avr":
+        st: uint8 = _hal_i2c_start()
+        if st != _I2C.START and st != _I2C.RESTART:
             _i2c_fail_io()
-        i = i + 1
-    st = _hal_i2c_start()                                  # repeated START
-    if st != _I2C.START and st != _I2C.RESTART:
-        _i2c_fail_io()
-    if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
-        _i2c_fail_nodev()
-    if in_n > 0:
-        last: uint16 = in_n - 1
-        k: uint16 = 0
-        while k < last:
-            in_buffer[k] = _hal_i2c_read_ack()
-            k = k + 1
-        in_buffer[last] = _hal_i2c_read_nack()
-    _hal_i2c_stop()
+        if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
+            _i2c_fail_nodev()
+        i: uint16 = 0
+        while i < out_n:
+            if _hal_i2c_write(out_buffer[i]) != _I2C.DATA_ACK:
+                _i2c_fail_io()
+            i = i + 1
+        st = _hal_i2c_start()                                  # repeated START
+        if st != _I2C.START and st != _I2C.RESTART:
+            _i2c_fail_io()
+        if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
+            _i2c_fail_nodev()
+        if in_n > 0:
+            last: uint16 = in_n - 1
+            k: uint16 = 0
+            while k < last:
+                in_buffer[k] = _hal_i2c_read_ack()
+                k = k + 1
+            in_buffer[last] = _hal_i2c_read_nack()
+        _hal_i2c_stop()
 
 
 def _i2c_writeto_then_readfrom_window(address: uint8, out_buffer,
                                       out_start: uint16, out_end: uint16,
                                       in_buffer, in_start: uint16,
                                       in_n: uint16):
-    st: uint8 = _hal_i2c_start()
-    if st != _I2C.START and st != _I2C.RESTART:
-        _i2c_fail_io()
-    if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
-        _i2c_fail_nodev()
-    i: uint16 = out_start
-    while i < out_end:
-        if _hal_i2c_write(out_buffer[i]) != _I2C.DATA_ACK:
+    if __CHIP__.arch == "avr":
+        st: uint8 = _hal_i2c_start()
+        if st != _I2C.START and st != _I2C.RESTART:
             _i2c_fail_io()
-        i = i + 1
-    st = _hal_i2c_start()                                  # repeated START
-    if st != _I2C.START and st != _I2C.RESTART:
-        _i2c_fail_io()
-    if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
-        _i2c_fail_nodev()
-    if in_n > 0:
-        last: uint16 = in_n - 1
-        k: uint16 = 0
-        while k < last:
-            in_buffer[in_start + k] = _hal_i2c_read_ack()
-            k = k + 1
-        in_buffer[in_start + last] = _hal_i2c_read_nack()
-    _hal_i2c_stop()
+        if _hal_i2c_write(address << 1) != _I2C.SLA_ACK:       # SLA+W
+            _i2c_fail_nodev()
+        i: uint16 = out_start
+        while i < out_end:
+            if _hal_i2c_write(out_buffer[i]) != _I2C.DATA_ACK:
+                _i2c_fail_io()
+            i = i + 1
+        st = _hal_i2c_start()                                  # repeated START
+        if st != _I2C.START and st != _I2C.RESTART:
+            _i2c_fail_io()
+        if _hal_i2c_write((address << 1) | 1) != _I2C.SLA_R_ACK:   # SLA+R
+            _i2c_fail_nodev()
+        if in_n > 0:
+            last: uint16 = in_n - 1
+            k: uint16 = 0
+            while k < last:
+                in_buffer[in_start + k] = _hal_i2c_read_ack()
+                k = k + 1
+            in_buffer[in_start + last] = _hal_i2c_read_nack()
+        _hal_i2c_stop()
 
 
 class I2C:
@@ -361,18 +371,30 @@ class I2C:
 
     @inline
     def __init__(self, scl, sda, *, frequency: uint32 = 100000, timeout: uint8 = 255):
-        # frequency reaches the bit-rate register now. A rate the hardware cannot clock is
-        # refused inside the HAL with the reachable range named; it used to be dropped here
-        # and the bus ran at 100 kHz whatever the program asked for.
-        self._bus = _I2C(0, 0, frequency)
-        # CircuitPython checks the wiring: with the pull-ups the HAL just enabled holding
-        # the bus up and the TWI not driving anything until the first START, both lines
-        # read at the pins must be high. A line still low is a bus with nothing pulling it
-        # up, and refusing here is the message shared-module busio I2C raises on every
-        # port that keeps CIRCUITPY_REQUIRE_I2C_PULLUPS. The text is that port's own.
-        if self._bus.lines_high() == 0:
-            raise RuntimeError("No pull up found on SDA or SCL; check your wiring")
-        self._locked = 0
+        if __CHIP__.arch == "avr":
+            # frequency reaches the bit-rate register now. A rate the hardware cannot
+            # clock is refused inside the HAL with the reachable range named; it used
+            # to be dropped here and the bus ran at 100 kHz whatever the program asked.
+            self._bus = _I2C(0, 0, frequency)
+            # CircuitPython checks the wiring: with the pull-ups the HAL just enabled
+            # holding the bus up and the TWI not driving anything until the first
+            # START, both lines read at the pins must be high. A line still low is a
+            # bus with nothing pulling it up, and refusing here is the message
+            # shared-module busio I2C raises on every port that keeps
+            # CIRCUITPY_REQUIRE_I2C_PULLUPS. The text is that port's own.
+            if self._bus.lines_high() == 0:
+                raise RuntimeError("No pull up found on SDA or SCL; check your wiring")
+            self._locked = 0
+        else:
+            # No silent wrong bus: the transactions below are byte-level TWI
+            # primitives, and this port's I2C HAL does not offer that shape (the
+            # rp2040/rp2350 one is transaction-level and writes only, so
+            # readfrom_into could never run on it at all).
+            raise CompileError(
+                "busio.I2C drives the controller a byte at a time -- start, address, "
+                "write, read with ack/nack, stop -- which only the AVR HAL exposes "
+                "today. On this chip bitbangio.I2C bit-bangs the same CircuitPython "
+                "API on any two pins.")
 
     @property
     def frequency(self) -> uint32:
@@ -510,7 +532,18 @@ class SPI:
 
     @inline
     def __init__(self, clock, MOSI=None, MISO=None, half_duplex: uint8 = 0):
-        self._bus = _SPI()
+        if __CHIP__.arch == "avr":
+            self._bus = _SPI()
+        else:
+            # busio.SPI reconfigures a bus after taking its lock (configure()
+            # programs rate/mode/bits on a bus built earlier); this port's SPI
+            # HAL fixes pins, mode and rate at construction and has no
+            # configure(), so the busio contract cannot sit on it.
+            raise CompileError(
+                "busio.SPI needs a hardware bus it can reconfigure after locking "
+                "(configure() programs baudrate, polarity and phase), which only "
+                "the AVR HAL exposes today. On this chip bitbangio.SPI bit-bangs "
+                "the same CircuitPython API on any pins.")
 
     @inline
     def try_lock(self) -> uint8:
