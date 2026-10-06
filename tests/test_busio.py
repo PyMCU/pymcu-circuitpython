@@ -46,8 +46,48 @@ def test_readinto_returns_what_it_got_instead_of_blocking():
 
 
 def test_readinto_with_nothing_to_read_returns_zero():
+    # On the AVR port -- which is what this mock builds -- readinto still answers 0,
+    # keeping the compiled output byte-identical. The ARM ports answer None, the
+    # CircuitPython spelling; that path is exercised by the pymcu-arm-layers
+    # integration suite, which compiles and runs the ARM branch for real.
     u = UART(None, None, baudrate=9600)
     assert u.readinto(bytearray(4)) == 0
+
+
+def test_timeout_float_is_seconds():
+    # CircuitPython spells the read timeout in seconds, as a float: timeout=0.1
+    # must land as 100 ms, not truncate to 0.
+    u = UART(None, None, baudrate=9600, timeout=0.1)
+    assert u._timeout == 100
+
+
+def test_timeout_int_is_milliseconds():
+    # The int spelling stays milliseconds, the convention this layer has always had.
+    u = UART(None, None, baudrate=9600, timeout=20)
+    assert u._timeout == 20
+
+
+def test_timeout_getter_reads_back_seconds():
+    u = UART(None, None, baudrate=9600, timeout=0.1)
+    assert u.timeout == 0.1
+
+
+def test_timeout_setter_takes_the_same_spellings():
+    u = UART(None, None, baudrate=9600)
+    u.timeout = 0.05
+    assert u._timeout == 50
+    u.timeout = 30
+    assert u._timeout == 30
+
+
+def test_timeout_beyond_the_uint16_field_is_refused():
+    with pytest.raises(CompileError):
+        UART(None, None, baudrate=9600, timeout=66.0)
+    with pytest.raises(CompileError):
+        UART(None, None, baudrate=9600, timeout=70000)
+    u = UART(None, None, baudrate=9600)
+    with pytest.raises(CompileError):
+        u.timeout = 100.0
 
 
 def test_in_waiting_is_a_count_when_buffered():
