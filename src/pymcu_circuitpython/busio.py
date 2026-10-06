@@ -100,6 +100,32 @@ def _timeout_ms(timeout) -> uint16:
     return uint16(timeout * 1000.0 + 0.5)
 
 
+@inline
+def _rp_uart_tx_id(pin) -> int16:
+    # The peripheral's own mux table (CircuitPython's common-hal busio.UART
+    # derives the instance from the pins the same way): TX pads sit at
+    # (pin & 3) == 0 on the RP2040 and at every even pin on the RP2350, and the
+    # UART id is bit 3 of pin + 4 in both. -1 means the pin is no TX pad at all.
+    if __CHIP__.name == "rp2350":
+        if pin < 0 or pin > 47 or pin & 1:
+            return -1
+    elif pin < 0 or pin > 29 or pin & 3:
+        return -1
+    return (pin + 4) >> 3 & 1
+
+
+@inline
+def _rp_uart_rx_id(pin) -> int16:
+    # The RX half of the same table: (pin & 3) == 1 on the RP2040, every odd
+    # pin on the RP2350.
+    if __CHIP__.name == "rp2350":
+        if pin < 0 or pin > 47 or (pin & 1) == 0:
+            return -1
+    elif pin < 0 or pin > 29 or (pin & 3) != 1:
+        return -1
+    return (pin + 4) >> 3 & 1
+
+
 class UART:
     class Parity:
         EVEN = 1
@@ -132,6 +158,32 @@ class UART:
                     "busio.UART: this chip's UART HAL routes both the tx and the rx "
                     "pad it is given; a tx-only or rx-only UART is not expressible "
                     "here -- pass both pins.")
+            # Which UART the pair belongs to comes from the chip's mux table,
+            # exactly like CircuitPython's common-hal does. This HAL drives
+            # UART0 only, so a pair that is real on the chip but routes to
+            # UART1 (GP4/GP5 on an RP2040) is refused -- silently muxing those
+            # pads while writing the UART0 registers would drive nothing, which
+            # is what happened here.
+            if _rp_uart_tx_id(tx) < 0:
+                raise CompileError(
+                    "busio.UART: tx is not a UART transmit pad on this chip "
+                    "(RP2040 TX pads: GP0, GP4, GP8, GP12, GP16, GP20, GP24, "
+                    "GP28).")
+            if _rp_uart_rx_id(rx) < 0:
+                raise CompileError(
+                    "busio.UART: rx is not a UART receive pad on this chip "
+                    "(RP2040 RX pads: GP1, GP5, GP9, GP13, GP17, GP21, GP25, "
+                    "GP29).")
+            if _rp_uart_tx_id(tx) != _rp_uart_rx_id(rx):
+                raise CompileError(
+                    "busio.UART: tx and rx belong to different UARTs; a pair "
+                    "must sit on the same peripheral.")
+            if _rp_uart_tx_id(tx) != 0:
+                raise CompileError(
+                    "busio.UART: these pads belong to UART1 and this chip's HAL "
+                    "drives UART0 only -- pick a UART0 pair (RP2040: GP0/GP1, "
+                    "GP12/GP13, GP16/GP17, GP28/GP29) or a HAL that programs "
+                    "UART1.")
         match parity:
             case None:
                 if __CHIP__.arch == "avr":
