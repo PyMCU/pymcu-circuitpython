@@ -60,6 +60,9 @@ else:
     # On the ARM ports the UART HAL has no timed read: readinto polls the RX flag
     # against the free-running microsecond TIMER instead (no init needed there).
     from pymcu.time import micros as _micros
+    # Which UART a pad reaches, and whether it reaches one at all, is this
+    # chip's own mux table -- the HAL's to answer, not this layer's.
+    from pymcu.hal.uart import tx_id, rx_id
 
 
 # The parities, at module level. CircuitPython keeps them nested inside UART and spells them
@@ -102,39 +105,6 @@ def _timeout_ms(timeout) -> uint16:
     return uint16(timeout * 1000.0)
 
 
-@inline
-def _rp_uart_tx_id(pin) -> int16:
-    # The peripheral's own mux table (CircuitPython's common-hal busio.UART
-    # derives the instance from the pins the same way): TX pads sit at
-    # (pin & 3) == 0 on the RP2040 and at every even pin on the RP2350, and the
-    # UART id is bit 3 of pin + 4 in both. -1 means the pin is no TX pad at all.
-    # On the RP2350 a pad numbered 2 mod 4 reaches its UART only through
-    # GPIO_FUNC_UART_AUX, which the rp2350 HAL never writes -- a UART accepted
-    # on GP2 would drive nothing, so those pads report -2 and get refused.
-    if __CHIP__.name == "rp2350":
-        if pin < 0 or pin > 47 or pin & 1:
-            return -1
-        if pin & 3 == 2:
-            return -2
-    elif pin < 0 or pin > 29 or pin & 3:
-        return -1
-    return (pin + 4) >> 3 & 1
-
-
-@inline
-def _rp_uart_rx_id(pin) -> int16:
-    # The RX half of the same table: (pin & 3) == 1 on the RP2040, every odd
-    # pin on the RP2350.
-    if __CHIP__.name == "rp2350":
-        if pin < 0 or pin > 47 or (pin & 1) == 0:
-            return -1
-        if pin & 3 == 3:
-            return -2
-    elif pin < 0 or pin > 29 or (pin & 3) != 1:
-        return -1
-    return (pin + 4) >> 3 & 1
-
-
 class UART:
     class Parity:
         EVEN = 1
@@ -167,41 +137,31 @@ class UART:
                     "busio.UART: this chip's UART HAL routes both the tx and the rx "
                     "pad it is given; a tx-only or rx-only UART is not expressible "
                     "here -- pass both pins.")
-            # Which UART the pair belongs to comes from the chip's mux table,
-            # exactly like CircuitPython's common-hal does. This HAL drives
-            # UART0 only, so a pair that is real on the chip but routes to
-            # UART1 (GP4/GP5 on an RP2040) is refused -- silently muxing those
-            # pads while writing the UART0 registers would drive nothing, which
-            # is what happened here.
-            if _rp_uart_tx_id(tx) == -2:
-                raise CompileError(
-                    "busio.UART: on the RP2350 a pad numbered 2 mod 4 reaches "
-                    "its UART only through GPIO_FUNC_UART_AUX, which this HAL "
-                    "never writes -- the pin would mux to a function that is "
-                    "not the UART. Pick a TX pad numbered 0 mod 4 instead "
-                    "(GP0, GP12, GP16, GP28 for UART0).")
-            if _rp_uart_rx_id(rx) == -2:
-                raise CompileError(
-                    "busio.UART: on the RP2350 a pad numbered 3 mod 4 reaches "
-                    "its UART only through GPIO_FUNC_UART_AUX, which this HAL "
-                    "never writes -- the pin would mux to a function that is "
-                    "not the UART. Pick an RX pad numbered 1 mod 4 instead "
-                    "(GP1, GP13, GP17, GP29 for UART0).")
-            if _rp_uart_tx_id(tx) < 0:
+            # Which UART the pair belongs to, and whether either pad reaches one
+            # at all, comes from the chip's own mux table in the HAL -- the same
+            # table CircuitPython's common-hal derives the instance from. This
+            # HAL drives UART0 only, so a pair that is real on the chip but
+            # routes to UART1 (GP4/GP5 on an RP2040) is refused here -- silently
+            # muxing those pads while writing the UART0 registers would drive
+            # nothing, which is what happened before this check existed. A pad
+            # that reaches its UART only through GPIO_FUNC_UART_AUX (RP2350)
+            # never reaches tx_id/rx_id at all: the HAL raises there, naming
+            # the pad.
+            if tx_id(tx) < 0:
                 raise CompileError(
                     "busio.UART: tx is not a UART transmit pad on this chip "
                     "(RP2040 TX pads: GP0, GP4, GP8, GP12, GP16, GP20, GP24, "
                     "GP28).")
-            if _rp_uart_rx_id(rx) < 0:
+            if rx_id(rx) < 0:
                 raise CompileError(
                     "busio.UART: rx is not a UART receive pad on this chip "
                     "(RP2040 RX pads: GP1, GP5, GP9, GP13, GP17, GP21, GP25, "
                     "GP29).")
-            if _rp_uart_tx_id(tx) != _rp_uart_rx_id(rx):
+            if tx_id(tx) != rx_id(rx):
                 raise CompileError(
                     "busio.UART: tx and rx belong to different UARTs; a pair "
                     "must sit on the same peripheral.")
-            if _rp_uart_tx_id(tx) != 0:
+            if tx_id(tx) != 0:
                 raise CompileError(
                     "busio.UART: these pads belong to UART1 and this chip's HAL "
                     "drives UART0 only -- pick a UART0 pair (RP2040: GP0/GP1, "
