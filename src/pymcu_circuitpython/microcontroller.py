@@ -10,7 +10,7 @@
 #   v    = microcontroller.cpu.voltage       # Vcc in volts (soft-float)
 #   microcontroller.reset()                  # reset the MCU (watchdog)
 
-from pymcu.chips import __CHIP__
+from pymcu.chips import __CHIP__, __FREQ__
 from pymcu.exceptions import CompileError
 from pymcu.types import uint8, uint16, uint32, inline, const, warning
 if __CHIP__.arch == "avr":
