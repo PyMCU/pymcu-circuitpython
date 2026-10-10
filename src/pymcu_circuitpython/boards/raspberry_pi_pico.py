@@ -53,3 +53,28 @@ SDA  = 4    # GP4  -- I2C0 SDA (Pico default)
 SCK  = 18   # GP18 -- SPI0 SCK (Pico default)
 MOSI = 19   # GP19 -- SPI0 TX  (Pico default)
 MISO = 16   # GP16 -- SPI0 RX  (Pico default)
+
+
+# The three bus constructors every Adafruit guide opens with: `i2c = board.I2C()`
+# is the first line of nearly every sensor example (see arduino_uno.py's own
+# copy of this comment for the full rationale -- functions, not module-level
+# objects, so a program that never calls board.I2C() never pays to build one).
+#
+# receiver_buffer_size=1 on UART(): the RP2040/RP2350 UART HAL's receive
+# buffer is the PL011's own 32-entry hardware FIFO, not an interrupt-driven
+# ring like AVR's -- busio.UART refuses a receiver_buffer_size over 32, and
+# the board default (64) is already past that. 1 keeps board.UART() a
+# single-byte-polled UART with no ring at all, exactly as it is on AVR.
+from busio import I2C as _board_i2c, SPI as _board_spi, UART as _board_uart
+
+
+def I2C():
+    return _board_i2c(SCL, SDA)
+
+
+def SPI():
+    return _board_spi(SCK, MOSI, MISO)
+
+
+def UART():
+    return _board_uart(TX, RX, baudrate=9600, receiver_buffer_size=1)
