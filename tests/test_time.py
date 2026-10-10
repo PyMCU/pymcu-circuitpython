@@ -1,6 +1,6 @@
 """time module: sleep(), monotonic() (float), monotonic_ns() (int)."""
 from unittest.mock import patch
-import pymcu.hal.timer as _tm
+import pymcu.time as _pt
 from pymcu_circuitpython.time import sleep, monotonic, monotonic_ns
 
 
@@ -14,7 +14,10 @@ def test_monotonic_returns_float():
 
 
 def test_monotonic_value_from_millis():
-    with patch.object(_tm, "millis", return_value=5000):
+    # pymcu.time.millis(), not pymcu.hal.timer.millis() (PyMCU#cp-timebase-arm):
+    # pymcu.time is the one place that dispatches per chip, including
+    # RP2040/RP2350, which pymcu.hal.timer does not reach at all.
+    with patch.object(_pt, "millis", return_value=5000):
         assert monotonic() == 5.0
 
 
@@ -23,7 +26,7 @@ def test_monotonic_ns_returns_int():
 
 
 def test_monotonic_ns_value_from_millis():
-    with patch.object(_tm, "millis", return_value=1):
+    with patch.object(_pt, "millis", return_value=1):
         assert monotonic_ns() == 1_000_000
 
 

@@ -44,7 +44,11 @@ def test_a_pin_alarm_carries_the_fields_a_time_alarm_has_and_the_other_way_round
 
 
 def test_the_first_alarm_to_fire_is_the_one_reported():
-    import pymcu.hal.timer as _t
+    # pymcu.time.millis(), not pymcu.hal.timer.millis() (PyMCU#cp-timebase-arm):
+    # alarm/__init__.py's _alarm_fired reads the timebase through pymcu.time,
+    # the one place that dispatches per chip (pymcu.hal.timer has no
+    # RP2040/RP2350 branch).
+    import pymcu.time as _t
     ta = alarm.time.TimeAlarm(monotonic_time=0.05)
     pa = alarm.pin.PinAlarm("PD2", value=1)
     with patch.object(_t, "millis", _millis_reaching(0, 10, 60)):
@@ -53,7 +57,7 @@ def test_the_first_alarm_to_fire_is_the_one_reported():
 
 
 def test_a_pin_alarm_later_in_the_list_reports_its_own_position():
-    import pymcu.hal.timer as _t
+    import pymcu.time as _t
     ta = alarm.time.TimeAlarm(monotonic_time=1000.0)
     pa = alarm.pin.PinAlarm("PD2", value=0)     # the mock pin reads 0, so this fires at once
     with patch.object(_t, "millis", _millis_reaching(0)):
@@ -61,7 +65,7 @@ def test_a_pin_alarm_later_in_the_list_reports_its_own_position():
 
 
 def test_a_single_alarm_still_works_and_reports_zero():
-    import pymcu.hal.timer as _t
+    import pymcu.time as _t
     ta = alarm.time.TimeAlarm(monotonic_time=0.01)
     with patch.object(_t, "millis", _millis_reaching(0, 50)):
         assert alarm.light_sleep_until_alarms(ta) == 0
@@ -70,7 +74,7 @@ def test_a_single_alarm_still_works_and_reports_zero():
 def test_more_alarms_than_the_old_four_positional_limit_are_accepted():
     # Upstream spells it *alarms; the old four-fixed-positionals signature could
     # not take a fifth alarm. The pin fires at once, so five is where it lands.
-    import pymcu.hal.timer as _t
+    import pymcu.time as _t
     alarms = [alarm.time.TimeAlarm(monotonic_time=1000.0) for _ in range(4)]
     alarms.append(alarm.pin.PinAlarm("PD2", value=0))
     with patch.object(_t, "millis", _millis_reaching(0)):
@@ -78,7 +82,7 @@ def test_more_alarms_than_the_old_four_positional_limit_are_accepted():
 
 
 def test_exit_and_deep_sleep_takes_alarms_and_preserve_dios_like_upstream():
-    import pymcu.hal.timer as _t
+    import pymcu.time as _t
     ta = alarm.time.TimeAlarm(monotonic_time=0.01)
     pa = alarm.pin.PinAlarm("PD2", value=0)
     with patch.object(_t, "millis", _millis_reaching(0)):

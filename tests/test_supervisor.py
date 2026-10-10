@@ -1,6 +1,6 @@
 """supervisor: the 2**29 ticks_ms wrap (CircuitPython parity)."""
 from unittest.mock import patch
-import pymcu.hal.timer as _tm
+import pymcu.time as _pt
 from pymcu_circuitpython import supervisor
 from pymcu_circuitpython.supervisor import ticks_ms
 
@@ -9,9 +9,10 @@ _MAX = _PERIOD - 1
 
 
 def test_ticks_ms_masked_to_29bits():
-    with patch.object(_tm, "millis", return_value=5000):
+    # pymcu.time.millis(), not pymcu.hal.timer.millis() (PyMCU#cp-timebase-arm).
+    with patch.object(_pt, "millis", return_value=5000):
         assert ticks_ms() == 5000
-    with patch.object(_tm, "millis", return_value=_PERIOD + 7):
+    with patch.object(_pt, "millis", return_value=_PERIOD + 7):
         assert ticks_ms() == 7   # wraps at 2**29
 
 

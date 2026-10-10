@@ -484,9 +484,21 @@ def _install_hal_mocks() -> None:
     # The real pymcu.time imports __CHIP__ from pymcu.chips at module load,
     # which is a compile-time constant injected by the compiler.  It is not
     # present at runtime in CPython, so we replace the whole module.
+    #
+    # millis()/micros()/millis_init() live here too (PyMCU#cp-timebase-arm):
+    # pymcu.time is the one place that dispatches per chip (RP2040/RP2350 read
+    # a hardware TIMER, AVR/PIC18F45K50 go through pymcu.hal.timer, everything
+    # else raises), so the CP layer reads the timebase through it instead of
+    # calling pymcu.hal.timer directly -- that module has no RP2040/RP2350
+    # branch and raises at its own top level on import there. Backed by the
+    # SAME _Clock as the "timer" stub above: a program under test patches
+    # whichever one the code path it exercises actually reads.
     time_mod = ModuleType("pymcu.time")
     time_mod.delay_ms = lambda ms: None
     time_mod.delay_us = lambda us: None
+    time_mod.millis = _Clock.millis
+    time_mod.micros = lambda: _Clock.millis() * 1000
+    time_mod.millis_init = lambda: None
     sys.modules["pymcu.time"] = time_mod
 
     # --- pymcu.chips (microcontroller.py uses device_info) -------------- #
