@@ -48,6 +48,15 @@ from pymcu.chips import __CHIP__
 from pymcu.exceptions import CompileError
 from pymcu.types import uint8, uint16, uint32, int16, inline, const
 from pymcu.hal.uart import UART as _UART
+# Unconditional (every arch's anchor resolves it, AVR included): the type the
+# module-level _i2c_* bodies below annotate their `bus` parameter with. Every
+# top-level function in this module is type-checked for every target it
+# compiles against, called or not -- an untyped `bus` parameter defaulted to
+# a plain integer on a program that never touches I2C at all (nothing calls
+# the function, so there is no call site to infer the type from either), and
+# `bus.write_bytes(...)` in the body refused with "integers... carry no
+# methods" even on an RP2040 program that only ever uses busio.UART.
+from pymcu.hal.i2c import I2C as _I2CBus
 if __CHIP__.arch == "avr":
     from pymcu.hal.i2c import I2C as _I2C
     from pymcu.hal.avr.i2c.avr import (
@@ -63,6 +72,14 @@ else:
     # Which UART a pad reaches, and whether it reaches one at all, is this
     # chip's own mux table -- the HAL's to answer, not this layer's.
     from pymcu.hal.uart import tx_id, rx_id
+    # Hardware I2C/SPI: the RP2040/RP2350 HALs are transaction-level (one call
+    # per whole write/read, the controller's own FIFO does the byte loop),
+    # unlike AVR's byte-level TWI primitives above -- the busio _i2c_* bodies
+    # below branch on __CHIP__.arch to call these directly, with no byte-by-
+    # byte loop here at all. The anchor modules (pymcu.hal.i2c/spi) are what
+    # busio.UART already uses the same way for its own HAL class.
+    from pymcu.hal.i2c import I2C_OK as _I2C_OK, I2C_ABRT_NODEV as _I2C_ABRT_NODEV
+    from pymcu.hal.spi import SPI as _SPI_hw
 
 
 # The parities, at module level. CircuitPython keeps them nested inside UART and spells them
@@ -358,16 +375,31 @@ class UART:
 def _i2c_fail_io():
     if __CHIP__.arch == "avr":
         _hal_i2c_stop()
-        raise OSError("[Errno 5] Input/output error")
+    raise OSError("[Errno 5] Input/output error")
 
 
 def _i2c_fail_nodev():
     if __CHIP__.arch == "avr":
         _hal_i2c_stop()
-        raise OSError("[Errno 19] No such device")
+    raise OSError("[Errno 19] No such device")
 
 
-def _i2c_writeto(address: uint8, buffer, n: uint16):
+# Non-AVR raise: the RP2040/RP2350 HAL answers a WHOLE transfer with one
+# I2C_* code (I2C_OK, or the abort classification from wherever it stopped),
+# not a per-byte ACK/NACK the caller checks after every byte -- one check
+# after the call is the whole of it. The text is the SAME OSError AVR's own
+# per-byte checks raise (shared _i2c_fail_io/_i2c_fail_nodev above), since
+# this is the same CircuitPython contract on every chip: adafruit_bus_device.
+# I2CDevice catches exactly this pair to report "No I2C device at address".
+def _i2c_check(rc: uint8):
+    if __CHIP__.arch != "avr":
+        if rc == _I2C_ABRT_NODEV:
+            _i2c_fail_nodev()
+        elif rc != _I2C_OK:
+            _i2c_fail_io()
+
+
+def _i2c_writeto(bus: _I2CBus, address: uint8, buffer, n: uint16):
     if __CHIP__.arch == "avr":
         st: uint8 = _hal_i2c_start()
         if st != _I2C.START and st != _I2C.RESTART:
@@ -380,9 +412,11 @@ def _i2c_writeto(address: uint8, buffer, n: uint16):
                 _i2c_fail_io()
             k = k + 1
         _hal_i2c_stop()
+    else:
+        _i2c_check(bus.write_bytes(address, buffer, 0, n))
 
 
-def _i2c_writeto_window(address: uint8, buffer, start: uint16, end: uint16):
+def _i2c_writeto_window(bus: _I2CBus, address: uint8, buffer, start: uint16, end: uint16):
     if __CHIP__.arch == "avr":
         st: uint8 = _hal_i2c_start()
         if st != _I2C.START and st != _I2C.RESTART:
@@ -395,9 +429,11 @@ def _i2c_writeto_window(address: uint8, buffer, start: uint16, end: uint16):
                 _i2c_fail_io()
             i = i + 1
         _hal_i2c_stop()
+    else:
+        _i2c_check(bus.write_bytes(address, buffer, start, end - start))
 
 
-def _i2c_readfrom(address: uint8, buffer, n: uint16):
+def _i2c_readfrom(bus: _I2CBus, address: uint8, buffer, n: uint16):
     if __CHIP__.arch == "avr":
         st: uint8 = _hal_i2c_start()
         if st != _I2C.START and st != _I2C.RESTART:
@@ -412,9 +448,11 @@ def _i2c_readfrom(address: uint8, buffer, n: uint16):
                 k = k + 1
             buffer[last] = _hal_i2c_read_nack()
         _hal_i2c_stop()
+    else:
+        _i2c_check(bus.read_bytes(address, buffer, 0, n))
 
 
-def _i2c_readfrom_window(address: uint8, buffer, start: uint16, n: uint16):
+def _i2c_readfrom_window(bus: _I2CBus, address: uint8, buffer, start: uint16, n: uint16):
     if __CHIP__.arch == "avr":
         st: uint8 = _hal_i2c_start()
         if st != _I2C.START and st != _I2C.RESTART:
@@ -429,9 +467,11 @@ def _i2c_readfrom_window(address: uint8, buffer, start: uint16, n: uint16):
                 k = k + 1
             buffer[start + last] = _hal_i2c_read_nack()
         _hal_i2c_stop()
+    else:
+        _i2c_check(bus.read_bytes(address, buffer, start, n))
 
 
-def _i2c_writeto_then_readfrom(address: uint8, out_buffer, out_n: uint16,
+def _i2c_writeto_then_readfrom(bus: _I2CBus, address: uint8, out_buffer, out_n: uint16,
                                in_buffer, in_n: uint16):
     if __CHIP__.arch == "avr":
         st: uint8 = _hal_i2c_start()
@@ -457,9 +497,11 @@ def _i2c_writeto_then_readfrom(address: uint8, out_buffer, out_n: uint16,
                 k = k + 1
             in_buffer[last] = _hal_i2c_read_nack()
         _hal_i2c_stop()
+    else:
+        _i2c_check(bus.write_then_read(address, out_buffer, 0, out_n, in_buffer, 0, in_n))
 
 
-def _i2c_writeto_then_readfrom_window(address: uint8, out_buffer,
+def _i2c_writeto_then_readfrom_window(bus: _I2CBus, address: uint8, out_buffer,
                                       out_start: uint16, out_end: uint16,
                                       in_buffer, in_start: uint16,
                                       in_n: uint16):
@@ -487,6 +529,9 @@ def _i2c_writeto_then_readfrom_window(address: uint8, out_buffer,
                 k = k + 1
             in_buffer[in_start + last] = _hal_i2c_read_nack()
         _hal_i2c_stop()
+    else:
+        _i2c_check(bus.write_then_read(address, out_buffer, out_start, out_end - out_start,
+                                       in_buffer, in_start, in_n))
 
 
 class I2C:
@@ -514,15 +559,13 @@ class I2C:
                 raise RuntimeError("No pull up found on SDA or SCL; check your wiring")
             self._locked = 0
         else:
-            # No silent wrong bus: the transactions below are byte-level TWI
-            # primitives, and this port's I2C HAL does not offer that shape (the
-            # rp2040/rp2350 one is transaction-level and writes only, so
-            # readfrom_into could never run on it at all).
-            raise CompileError(
-                "busio.I2C drives the controller a byte at a time -- start, address, "
-                "write, read with ack/nack, stop -- which only the AVR HAL exposes "
-                "today. On this chip bitbangio.I2C bit-bangs the same CircuitPython "
-                "API on any two pins.")
+            # Hardware I2C0 (DW_apb_i2c): transaction-level, not byte-level
+            # like the AVR path above, but it drives real reads now (not only
+            # writes) -- the pull-ups are the controller's own internal ones,
+            # enabled unconditionally inside the HAL constructor, so there is
+            # no run-time wiring check to make the way AVR's lines_high() does.
+            self._bus = _I2CBus(frequency, sda, scl)
+            self._locked = 0
 
     @property
     def frequency(self) -> uint32:
@@ -577,13 +620,26 @@ class I2C:
         The length goes straight into the call as `len(buffer)` -- a compile-time
         constant -- rather than through a `limit` local the conditional clamp would
         rebind, which would keep the argument a runtime variable at the marshal.
+
+        A zero-length buffer is adafruit_bus_device's own probe idiom
+        (I2CDevice.__probe_for_device tries `i2c.writeto(addr, b"")` before every
+        I2CDevice construction unless probe=False) -- neither HAL's write
+        primitive can send an address with no data phase at all (there is no
+        FIFO/shift-register entry that holds only an address), so this answers
+        the same question through ping() instead: does the address ACK. Also
+        sidesteps a `b""` literal reaching the byte-indexing loop inside
+        write_bytes with nothing real behind it to index.
         """
+        if len(buffer) == 0:
+            if self._bus.ping(address) == 0:
+                raise OSError("[Errno 19] No such device")
+            return
         if end < len(buffer):
-            _i2c_writeto_window(address, buffer, start, end)
+            _i2c_writeto_window(self._bus, address, buffer, start, end)
         elif start == 0:
-            _i2c_writeto(address, buffer, len(buffer))
+            _i2c_writeto(self._bus, address, buffer, len(buffer))
         else:
-            _i2c_writeto_window(address, buffer, start, len(buffer))
+            _i2c_writeto_window(self._bus, address, buffer, start, len(buffer))
 
     @inline
     def readfrom_into(self, address: uint8, buffer, *, start: uint16 = 0, end: uint16 = 65535):
@@ -598,9 +654,9 @@ class I2C:
             # The common read fills the buffer from offset 0; `len(buffer)` reaches the
             # call as a compile-time constant instead of a rebound local.
             if end < len(buffer):
-                _i2c_readfrom(address, buffer, end)
+                _i2c_readfrom(self._bus, address, buffer, end)
             else:
-                _i2c_readfrom(address, buffer, len(buffer))
+                _i2c_readfrom(self._bus, address, buffer, len(buffer))
         else:
             limit: uint16 = len(buffer)
             if end < limit:
@@ -608,7 +664,7 @@ class I2C:
             n: uint16 = 0
             if start < limit:
                 n = limit - start
-            _i2c_readfrom_window(address, buffer, start, n)
+            _i2c_readfrom_window(self._bus, address, buffer, start, n)
 
     @inline
     def writeto_then_readfrom(self, address: uint8, out_buffer, in_buffer, *,
@@ -631,9 +687,9 @@ class I2C:
         if in_start < in_limit:
             in_n = in_limit - in_start
         if out_start == 0 and in_start == 0:
-            _i2c_writeto_then_readfrom(address, out_buffer, out_n, in_buffer, in_n)
+            _i2c_writeto_then_readfrom(self._bus, address, out_buffer, out_n, in_buffer, in_n)
         else:
-            _i2c_writeto_then_readfrom_window(address, out_buffer, out_start,
+            _i2c_writeto_then_readfrom_window(self._bus, address, out_buffer, out_start,
                                               out_limit, in_buffer, in_start, in_n)
 
     @inline
@@ -663,15 +719,11 @@ class SPI:
         if __CHIP__.arch == "avr":
             self._bus = _SPI()
         else:
-            # busio.SPI reconfigures a bus after taking its lock (configure()
-            # programs rate/mode/bits on a bus built earlier); this port's SPI
-            # HAL fixes pins, mode and rate at construction and has no
-            # configure(), so the busio contract cannot sit on it.
-            raise CompileError(
-                "busio.SPI needs a hardware bus it can reconfigure after locking "
-                "(configure() programs baudrate, polarity and phase), which only "
-                "the AVR HAL exposes today. On this chip bitbangio.SPI bit-bangs "
-                "the same CircuitPython API on any pins.")
+            # Hardware SPI0 (PL022): built at a sane default (1 MHz, mode 0)
+            # and reprogrammed by configure() below, which the HAL now has --
+            # the same two-step shape CircuitPython's own contract expects
+            # (build once, configure() per device after locking).
+            self._bus = _SPI_hw(1000000, 0, 0, clock, MOSI, MISO)
 
     @inline
     def try_lock(self) -> uint8:
