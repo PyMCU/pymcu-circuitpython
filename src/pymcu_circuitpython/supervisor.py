@@ -34,7 +34,10 @@ def ticks_ms() -> uint32:
     for CircuitPython.  Requires millis_init() at startup; the PyMCU build
     driver injects it automatically when ticks_ms() is detected.
     """
-    from pymcu.hal.timer import millis as _millis
+    # pymcu.time.millis() dispatches per chip; pymcu.hal.timer has no
+    # RP2040/RP2350 branch and raises at its own top level on import there
+    # (PyMCU#cp-timebase-arm).
+    from pymcu.time import millis as _millis
     return _millis() & _TICKS_MAX
 
 

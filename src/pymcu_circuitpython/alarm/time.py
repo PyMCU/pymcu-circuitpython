@@ -18,7 +18,11 @@ class TimeAlarm:
         # itself: a program whose only use of time is an alarm got a counter that never
         # moved, so the alarm never fired and sleep never returned.
         # Programming it twice is programming it the same way twice.
-        from pymcu.hal.timer import millis_init as _millis_init
+        # pymcu.time.millis_init(), not pymcu.hal.timer.millis_init() directly:
+        # see PyMCU#cp-timebase-arm -- the HAL module has no RP2040/RP2350
+        # branch and raises at its own top level on import there. pymcu.time's
+        # own millis_init() is a safe no-op on chips with a hardware counter.
+        from pymcu.time import millis_init as _millis_init
         _millis_init()
         self._is_time = 1
         # The deadline in whole milliseconds, worked out once here. The wait is a

@@ -60,7 +60,12 @@ def monotonic() -> float:
 
     On AVR: millis() / 1000.0 using the soft-float runtime.
     """
-    from pymcu.hal.timer import millis as _millis
+    # pymcu.time.millis(), not pymcu.hal.timer.millis() directly: the HAL module
+    # only has an AVR/PIC18F45K50 branch and raises at its own top level for
+    # every other architecture, including RP2040/RP2350, which read a hardware
+    # TIMER register instead and need no HAL counter at all. pymcu.time already
+    # dispatches per chip (PyMCU#cp-timebase-arm).
+    from pymcu.time import millis as _millis
     return _millis() / 1000.0
 
 
@@ -77,5 +82,5 @@ def monotonic_ns() -> uint32:
     For a clock that does not wrap for 49 days, use monotonic() (float seconds) or
     supervisor.ticks_ms().
     """
-    from pymcu.hal.timer import millis as _millis
+    from pymcu.time import millis as _millis
     return _millis() * 1000000

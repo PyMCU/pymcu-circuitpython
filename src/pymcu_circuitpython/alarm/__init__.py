@@ -63,7 +63,9 @@ wake_alarm = None
 @inline
 def _alarm_fired(alarm_obj) -> uint8:
     if alarm_obj._is_time:
-        from pymcu.hal.timer import millis as _millis
+        # pymcu.time.millis(), not pymcu.hal.timer.millis() directly: see
+        # PyMCU#cp-timebase-arm -- the HAL module has no RP2040/RP2350 branch.
+        from pymcu.time import millis as _millis
         if _millis() >= alarm_obj._deadline_ms:
             return 1
         return 0
