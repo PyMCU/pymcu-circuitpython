@@ -328,3 +328,43 @@ def test_board_uart_leaves_the_receive_ring_off():
     # cost every program that imports board the receive interrupt it never used.
     from pymcu_circuitpython.boards import arduino_uno
     assert arduino_uno.UART()._buffered == 0
+
+
+# ── Adafruit Feather RP2040 ──────────────────────────────────────────────  #
+# Values checked against ports/raspberrypi/boards/adafruit_feather_rp2040/pins.c
+# and mpconfigboard.h in adafruit/circuitpython.
+
+def test_feather_rp2040_digital_pins():
+    from pymcu_circuitpython.boards import adafruit_feather_rp2040 as feather
+    assert feather.D5  == 7
+    assert feather.D6  == 8
+    assert feather.D13 == 13
+    assert feather.D24 == 24
+
+
+def test_feather_rp2040_analog_pins():
+    from pymcu_circuitpython.boards import adafruit_feather_rp2040 as feather
+    assert feather.A0 == 26
+    assert feather.A3 == 29
+
+
+def test_feather_rp2040_named_pins():
+    from pymcu_circuitpython.boards import adafruit_feather_rp2040 as feather
+    assert feather.LED      == 13
+    assert feather.BUTTON   == 4
+    assert feather.NEOPIXEL == 16
+    assert feather.SCL      == 3
+    assert feather.SDA      == 2
+    assert feather.TX       == 0
+    assert feather.RX       == 1
+
+
+def test_feather_rp2040_names_pins_c_does_not_export_are_absent():
+    # pins.c has no D2, D3, D7, D8 or D14-D23; a name for one of them would be invented.
+    from pymcu_circuitpython.boards import adafruit_feather_rp2040 as feather
+    for name in ("D2", "D3", "D7", "D8", "D14", "D23"):
+        assert not hasattr(feather, name), name
+
+
+def test_feather_rp2040_board_chips_entry():
+    assert BOARD_CHIPS["adafruit_feather_rp2040"] == "rp2040"
