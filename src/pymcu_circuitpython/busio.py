@@ -399,7 +399,7 @@ def _i2c_check(rc: uint8):
             _i2c_fail_io()
 
 
-def _i2c_writeto(bus: _I2CBus, address: uint8, buffer, n: uint16):
+def _i2c_writeto(address: uint8, buffer, n: uint16):
     if __CHIP__.arch == "avr":
         st: uint8 = _hal_i2c_start()
         if st != _I2C.START and st != _I2C.RESTART:
@@ -412,11 +412,14 @@ def _i2c_writeto(bus: _I2CBus, address: uint8, buffer, n: uint16):
                 _i2c_fail_io()
             k = k + 1
         _hal_i2c_stop()
-    else:
+
+
+def _i2c_writeto_hw(bus: _I2CBus, address: uint8, buffer, n: uint16):
+    if __CHIP__.arch != "avr":
         _i2c_check(bus.write_bytes(address, buffer, 0, n))
 
 
-def _i2c_writeto_window(bus: _I2CBus, address: uint8, buffer, start: uint16, end: uint16):
+def _i2c_writeto_window(address: uint8, buffer, start: uint16, end: uint16):
     if __CHIP__.arch == "avr":
         st: uint8 = _hal_i2c_start()
         if st != _I2C.START and st != _I2C.RESTART:
@@ -429,11 +432,14 @@ def _i2c_writeto_window(bus: _I2CBus, address: uint8, buffer, start: uint16, end
                 _i2c_fail_io()
             i = i + 1
         _hal_i2c_stop()
-    else:
+
+
+def _i2c_writeto_window_hw(bus: _I2CBus, address: uint8, buffer, start: uint16, end: uint16):
+    if __CHIP__.arch != "avr":
         _i2c_check(bus.write_bytes(address, buffer, start, end - start))
 
 
-def _i2c_readfrom(bus: _I2CBus, address: uint8, buffer, n: uint16):
+def _i2c_readfrom(address: uint8, buffer, n: uint16):
     if __CHIP__.arch == "avr":
         st: uint8 = _hal_i2c_start()
         if st != _I2C.START and st != _I2C.RESTART:
@@ -448,11 +454,14 @@ def _i2c_readfrom(bus: _I2CBus, address: uint8, buffer, n: uint16):
                 k = k + 1
             buffer[last] = _hal_i2c_read_nack()
         _hal_i2c_stop()
-    else:
+
+
+def _i2c_readfrom_hw(bus: _I2CBus, address: uint8, buffer, n: uint16):
+    if __CHIP__.arch != "avr":
         _i2c_check(bus.read_bytes(address, buffer, 0, n))
 
 
-def _i2c_readfrom_window(bus: _I2CBus, address: uint8, buffer, start: uint16, n: uint16):
+def _i2c_readfrom_window(address: uint8, buffer, start: uint16, n: uint16):
     if __CHIP__.arch == "avr":
         st: uint8 = _hal_i2c_start()
         if st != _I2C.START and st != _I2C.RESTART:
@@ -467,11 +476,14 @@ def _i2c_readfrom_window(bus: _I2CBus, address: uint8, buffer, start: uint16, n:
                 k = k + 1
             buffer[start + last] = _hal_i2c_read_nack()
         _hal_i2c_stop()
-    else:
+
+
+def _i2c_readfrom_window_hw(bus: _I2CBus, address: uint8, buffer, start: uint16, n: uint16):
+    if __CHIP__.arch != "avr":
         _i2c_check(bus.read_bytes(address, buffer, start, n))
 
 
-def _i2c_writeto_then_readfrom(bus: _I2CBus, address: uint8, out_buffer, out_n: uint16,
+def _i2c_writeto_then_readfrom(address: uint8, out_buffer, out_n: uint16,
                                in_buffer, in_n: uint16):
     if __CHIP__.arch == "avr":
         st: uint8 = _hal_i2c_start()
@@ -497,11 +509,15 @@ def _i2c_writeto_then_readfrom(bus: _I2CBus, address: uint8, out_buffer, out_n: 
                 k = k + 1
             in_buffer[last] = _hal_i2c_read_nack()
         _hal_i2c_stop()
-    else:
+
+
+def _i2c_writeto_then_readfrom_hw(bus: _I2CBus, address: uint8, out_buffer, out_n: uint16,
+                               in_buffer, in_n: uint16):
+    if __CHIP__.arch != "avr":
         _i2c_check(bus.write_then_read(address, out_buffer, 0, out_n, in_buffer, 0, in_n))
 
 
-def _i2c_writeto_then_readfrom_window(bus: _I2CBus, address: uint8, out_buffer,
+def _i2c_writeto_then_readfrom_window(address: uint8, out_buffer,
                                       out_start: uint16, out_end: uint16,
                                       in_buffer, in_start: uint16,
                                       in_n: uint16):
@@ -529,7 +545,13 @@ def _i2c_writeto_then_readfrom_window(bus: _I2CBus, address: uint8, out_buffer,
                 k = k + 1
             in_buffer[in_start + last] = _hal_i2c_read_nack()
         _hal_i2c_stop()
-    else:
+
+
+def _i2c_writeto_then_readfrom_window_hw(bus: _I2CBus, address: uint8, out_buffer,
+                                      out_start: uint16, out_end: uint16,
+                                      in_buffer, in_start: uint16,
+                                      in_n: uint16):
+    if __CHIP__.arch != "avr":
         _i2c_check(bus.write_then_read(address, out_buffer, out_start, out_end - out_start,
                                        in_buffer, in_start, in_n))
 
@@ -630,16 +652,28 @@ class I2C:
         sidesteps a `b""` literal reaching the byte-indexing loop inside
         write_bytes with nothing real behind it to index.
         """
-        if len(buffer) == 0:
-            if self._bus.ping(address) == 0:
-                raise OSError("[Errno 19] No such device")
-            return
-        if end < len(buffer):
-            _i2c_writeto_window(self._bus, address, buffer, start, end)
-        elif start == 0:
-            _i2c_writeto(self._bus, address, buffer, len(buffer))
+        # AVR calls the real byte-level subroutines (no bus argument: the TWI is
+        # the only bus there). The `_hw` twins take the HAL instance as a parameter,
+        # which makes them expansion-only, so keeping the two apart is what stops
+        # every AVR call site from carrying an inlined copy of the whole body.
+        if __CHIP__.arch == "avr":
+            if end < len(buffer):
+                _i2c_writeto_window(address, buffer, start, end)
+            elif start == 0:
+                _i2c_writeto(address, buffer, len(buffer))
+            else:
+                _i2c_writeto_window(address, buffer, start, len(buffer))
         else:
-            _i2c_writeto_window(self._bus, address, buffer, start, len(buffer))
+            if len(buffer) == 0:
+                if self._bus.ping(address) == 0:
+                    raise OSError("[Errno 19] No such device")
+                return
+            if end < len(buffer):
+                _i2c_writeto_window_hw(self._bus, address, buffer, start, end)
+            elif start == 0:
+                _i2c_writeto_hw(self._bus, address, buffer, len(buffer))
+            else:
+                _i2c_writeto_window_hw(self._bus, address, buffer, start, len(buffer))
 
     @inline
     def readfrom_into(self, address: uint8, buffer, *, start: uint16 = 0, end: uint16 = 65535):
@@ -654,9 +688,15 @@ class I2C:
             # The common read fills the buffer from offset 0; `len(buffer)` reaches the
             # call as a compile-time constant instead of a rebound local.
             if end < len(buffer):
-                _i2c_readfrom(self._bus, address, buffer, end)
+                if __CHIP__.arch == "avr":
+                    _i2c_readfrom(address, buffer, end)
+                else:
+                    _i2c_readfrom_hw(self._bus, address, buffer, end)
             else:
-                _i2c_readfrom(self._bus, address, buffer, len(buffer))
+                if __CHIP__.arch == "avr":
+                    _i2c_readfrom(address, buffer, len(buffer))
+                else:
+                    _i2c_readfrom_hw(self._bus, address, buffer, len(buffer))
         else:
             limit: uint16 = len(buffer)
             if end < limit:
@@ -664,7 +704,10 @@ class I2C:
             n: uint16 = 0
             if start < limit:
                 n = limit - start
-            _i2c_readfrom_window(self._bus, address, buffer, start, n)
+            if __CHIP__.arch == "avr":
+                _i2c_readfrom_window(address, buffer, start, n)
+            else:
+                _i2c_readfrom_window_hw(self._bus, address, buffer, start, n)
 
     @inline
     def writeto_then_readfrom(self, address: uint8, out_buffer, in_buffer, *,
@@ -687,10 +730,19 @@ class I2C:
         if in_start < in_limit:
             in_n = in_limit - in_start
         if out_start == 0 and in_start == 0:
-            _i2c_writeto_then_readfrom(self._bus, address, out_buffer, out_n, in_buffer, in_n)
+            if __CHIP__.arch == "avr":
+                _i2c_writeto_then_readfrom(address, out_buffer, out_n, in_buffer, in_n)
+            else:
+                _i2c_writeto_then_readfrom_hw(self._bus, address, out_buffer, out_n,
+                                              in_buffer, in_n)
         else:
-            _i2c_writeto_then_readfrom_window(self._bus, address, out_buffer, out_start,
-                                              out_limit, in_buffer, in_start, in_n)
+            if __CHIP__.arch == "avr":
+                _i2c_writeto_then_readfrom_window(address, out_buffer, out_start,
+                                                  out_limit, in_buffer, in_start, in_n)
+            else:
+                _i2c_writeto_then_readfrom_window_hw(self._bus, address, out_buffer,
+                                                     out_start, out_limit, in_buffer,
+                                                     in_start, in_n)
 
     @inline
     def deinit(self):
