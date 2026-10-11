@@ -775,7 +775,17 @@ class SPI:
             # and reprogrammed by configure() below, which the HAL now has --
             # the same two-step shape CircuitPython's own contract expects
             # (build once, configure() per device after locking).
-            self._bus = _SPI_hw(1000000, 0, 0, clock, MOSI, MISO)
+            # A pin the caller left out is None, which is not a compile-time pin
+            # number; the HAL takes -1 for "not routed" (a write-only or read-only
+            # bus, like the 74HC595 shift register that passes only MOSI).
+            if MOSI is None and MISO is None:
+                self._bus = _SPI_hw(1000000, 0, 0, clock, -1, -1)
+            elif MISO is None:
+                self._bus = _SPI_hw(1000000, 0, 0, clock, MOSI, -1)
+            elif MOSI is None:
+                self._bus = _SPI_hw(1000000, 0, 0, clock, -1, MISO)
+            else:
+                self._bus = _SPI_hw(1000000, 0, 0, clock, MOSI, MISO)
 
     @inline
     def try_lock(self) -> uint8:
