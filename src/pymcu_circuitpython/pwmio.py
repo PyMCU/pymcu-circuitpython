@@ -16,8 +16,7 @@
 from pymcu.chips import __CHIP__
 from pymcu.exceptions import CompileError
 from pymcu.types import uint8, uint16, inline
-if __CHIP__.arch == "avr":
-    from pymcu.hal.pwm import PWM as _PWM
+from pymcu.hal.pwm import PWM as _PWM
 
 
 class PWMOut:
