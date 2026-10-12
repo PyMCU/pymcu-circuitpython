@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -15,29 +16,23 @@ TEMPLATE = CORPUS / "_template"
 SIZES = CORPUS / "sizes.json"
 
 
-def _default_pymcu() -> str:
-    """Locate the `pymcu` driver without hardcoding a path into one developer's own
-    project. A user project (like the old cp-hcsr04 wheel checkout this used to point
-    at) must never be a test dependency: it can be renamed, moved or deleted by its
-    owner without anyone touching this suite noticing why builds started failing.
+def _default_pymcu() -> str | None:
+    """Locate the `pymcu` driver of the environment this suite runs in, or None.
 
-    Resolution order: PyMCU's own repo checkout venv first (this suite's compiler of
-    record: it editable-installs pymcu-stdlib and pymcu-circuitpython from their
-    working trees, so a source change is what this suite measures), then whatever
-    `pymcu` PATH finds otherwise, which is where a released/pipx install can be
-    older than the repo checkout and would silently measure the wrong compiler if
-    tried first. PYMCU_BIN overrides both, for CI or a different layout.
+    The suite measures the compiler it is run with. A fixed path into one developer's
+    checkout made the flash baseline depend on whatever that checkout had installed, so
+    the answer comes from the running interpreter instead:
+
+      1. the `pymcu` in the same bin/ as the interpreter running pytest (the active venv);
+      2. `pymcu` on PATH, for a driver installed outside the venv.
+
+    PYMCU_BIN overrides both. When neither exists this returns None, and the corpus
+    tests skip with a reason instead of building with a guessed driver.
     """
-    repo_venv = Path.home() / "Repos" / "PyMCU" / ".venv" / "bin" / "pymcu"
-    if repo_venv.is_file():
-        return str(repo_venv)
-    on_path = shutil.which("pymcu")
-    if on_path:
-        return on_path
-    raise RuntimeError(
-        "no `pymcu` driver found at ~/Repos/PyMCU/.venv/bin/pymcu or on PATH; "
-        "set PYMCU_BIN to the driver you want the corpus suite to build with."
-    )
+    beside_interpreter = Path(sys.executable).parent / "pymcu"
+    if beside_interpreter.is_file():
+        return str(beside_interpreter)
+    return shutil.which("pymcu")
 
 
 DEFAULT_PYMCU = os.environ.get("PYMCU_BIN") or _default_pymcu()
@@ -125,6 +120,9 @@ def _build(tmp_path, program):
 
 @pytest.mark.parametrize("program", _programs(), ids=lambda p: p.name)
 def test_corpus_program(program, tmp_path, request):
+    if DEFAULT_PYMCU is None:
+        pytest.skip("no pymcu driver in this environment: install pymcu-compiler into the "
+                    "active venv, put pymcu on PATH, or set PYMCU_BIN")
     expected, substring = _expectation(program)
     ok, bytes_used, diagnostic, output = _build(tmp_path, program)
 
