@@ -11,11 +11,11 @@
   "12_neopixel_fill_tuple.py": 836,
   "13_hcsr04_pulseio.py": 6392,
   "14_rotary_encoder.py": 1366,
-  "16_time_monotonic_loop.py": 1280,
+  "16_time_monotonic_loop.py": 1576,
   "17_watchdog.py": 180,
-  "18_alarm_time.py": 1706,
+  "18_alarm_time.py": 1988,
   "19_alarm_pin.py": 418,
-  "20_supervisor_ticks_ms.py": 870,
+  "20_supervisor_ticks_ms.py": 1150,
   "21_digitalio_context.py": 194,
   "22_analog_voltage.py": 6048,
   "23_spi_write_readinto.py": 450,
@@ -28,7 +28,7 @@
   "30_rainbowio_neopixel_write.py": 1006,
   "31_uart_7e1.py": 422,
   "32_pwm_variable_frequency.py": 594,
-  "33_alarm_multiple.py": 1750,
+  "33_alarm_multiple.py": 2032,
   "34_nvm_counter.py": 526,
   "35_cpu_temperature.py": 5934,
   "41_kwargs_base_class.py": 380,
@@ -39,5 +39,5 @@
   "46_descriptor_get.py": 372,
   "47_print_tuple.py": 408,
   "49_list_pins_driver.py": 146,
-  "50_alarm_submodules_variadic.py": 2132
+  "50_alarm_submodules_variadic.py": 2576
 }
